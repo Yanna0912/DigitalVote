@@ -5,7 +5,7 @@
    backend URL in config.js before deploying.
    ========================================================================= */
 
-const API_BASE = window.CCDI_API_BASE || "http://localhost:4000/api";
+const API_BASE = window.CCDI_API_BASE || "https://digitalvote.onrender.com/api";
 
 /* ---------------- tiny API client ---------------- */
 async function api(path, { method = "GET", body, token } = {}) {
