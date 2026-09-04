@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CCDI Supreme Student Government Election</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="page">
+  <!-- ===================== PUBLIC LETTERHEAD ===================== -->
+  <header class="letterhead">
+    <img src="assets/logo.png" alt="CCDI logo" class="letterhead-logo">
+    <div class="letterhead-text">
+      <p class="letterhead-name">COMPUTER COMMUNICATION DEVELOPMENT INSTITUTE</p>
+      <p class="letterhead-city">Sorsogon City</p>
+    </div>
+  </header>
+
+  <!-- ===================== VOTER-FACING SECTION ===================== -->
+  <div id="voterSection">
+
+    <div class="hero">
+      <p class="hero-eyebrow">Official voting portal</p>
+      <h1 class="hero-title"><mark>Supreme Student Government Election</mark></h1>
+    </div>
+
+    <!-- Main Container: Dito magkatabi ang Maskot (kaliwa) at Card Form (kanan) -->
+    <div class="main-container">
+      
+      <!-- Left Side Image -->
+      <div class="left-space">
+        <img src="assets/mascot.png" alt="Election Illustration">
+      </div>
+
+      <!-- Right Side Card Area -->
+      <div class="right-card-area">
+        <div class="card" id="card">
+          <section class="panel" id="panel"></section>
+          <section class="takeover" id="takeover"></section>
+        </div>
+      </div>
+
+    </div>
+
+    <main class="stage">
+      <p class="hint">Please double check your email before proceeding.</p>
+      <p class="admin-signup-link">Election officer? <a href="#" id="adminSignupLink">Sign up for admin access</a></p>
+    </main>
+
+  </div>
+</div>
+
+  <!-- ===================== ADMIN DASHBOARD (full page, role-redirected) ===================== -->
+  <div id="adminSection" class="admin-section hidden">
+    <div class="admin-topbar">
+      <div class="admin-topbar-left">
+        <img src="assets/logo.png" alt="CCDI logo" class="admin-logo">
+        <div>
+          <p class="admin-title">Election Portal</p>
+          <p class="admin-sub" id="adminWho">CCDI Sorsogon City &middot; Supreme Student Government</p>
+        </div>
+      </div>
+      <button class="btn-logout" id="adminLogout">Log out</button>
+    </div>
+
+    <div class="stat-row" id="statRow"></div>
+
+    <div class="admin-tabs" id="adminTabs">
+      <button class="tab-pill active" data-admintab="candidates">Candidates</button>
+      <button class="tab-pill" data-admintab="students">Students</button>
+      <button class="tab-pill" data-admintab="qrcodes">QR Codes</button>
+      <button class="tab-pill" data-admintab="monitoring">Monitoring</button>
+      <button class="tab-pill" data-admintab="results">Results</button>
+      <button class="tab-pill" data-admintab="admins">Admins</button>
+    </div>
+
+    <div class="admin-panel" id="adminPanelCandidates">
+      <div class="glass-card">
+        <h3 class="panel-heading">Add candidate</h3>
+        <div class="form-grid">
+          <div class="field-dark">
+            <label>Position</label>
+            <input type="text" id="candPosition" placeholder="e.g. President">
+          </div>
+          <div class="field-dark">
+            <label>Candidate name</label>
+            <input type="text" id="candName" placeholder="Juan Dela Cruz">
+          </div>
+        </div>
+        <div class="field-dark">
+          <label>Slogan (optional)</label>
+          <input type="text" id="candSlogan" placeholder="For the students!">
+        </div>
+        <button class="btn-gradient" id="addCandidateBtn">Add candidate</button>
+      </div>
+
+      <div class="glass-card">
+        <h3 class="panel-heading" id="candidateListHeading">Candidate list (0)</h3>
+        <table class="dark-table" id="candidateTable">
+          <thead><tr><th>Position</th><th>Name</th><th>Slogan</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="admin-panel hidden" id="adminPanelStudents">
+      <div class="glass-card">
+        <h3 class="panel-heading">Import roster from CSV</h3>
+        <p class="panel-note">Columns: <strong>id_no, name, block</strong>. Existing IDs are updated in place &mdash; email and voting login are never touched by an import.</p>
+        <input type="file" id="csvFileInput" accept=".csv,text/csv" class="file-input">
+        <button class="btn-gradient" id="importCsvBtn" style="max-width:220px;">Import CSV</button>
+        <p class="error-text" id="csvError"></p>
+      </div>
+      <div class="glass-card">
+        <h3 class="panel-heading">Add one student</h3>
+        <div class="form-grid">
+          <div class="field-dark">
+            <label>Student ID</label>
+            <input type="text" id="rosterId" placeholder="e.g. 24-0001">
+          </div>
+          <div class="field-dark">
+            <label>Full name</label>
+            <input type="text" id="rosterName" placeholder="Last, First">
+          </div>
+        </div>
+        <div class="field-dark">
+          <label>Block</label>
+          <input type="text" id="rosterBlock" placeholder="e.g. BSIT-3A">
+        </div>
+        <p class="error-text" id="rosterError"></p>
+        <button class="btn-gradient" id="addStudentBtn">Add student</button>
+      </div>
+      <div class="glass-card">
+        <h3 class="panel-heading" id="rosterListHeading">Roster (0)</h3>
+        <table class="dark-table" id="rosterTable">
+          <thead><tr><th>Student ID</th><th>Name</th><th>Block</th><th>Email</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="admin-panel hidden" id="adminPanelQrcodes">
+      <div class="glass-card qr-card">
+        <h3 class="panel-heading">Site QR code</h3>
+        <p class="panel-note">Post this physically around campus or share it online. Scanning it simply opens this voting site &mdash; students still register or log in on the page itself.</p>
+        <div class="qr-display" id="siteQrBox"></div>
+        <p class="qr-url" id="siteQrUrl"></p>
+        <button class="btn-gradient" id="downloadQrBtn" style="max-width:220px;">Download QR</button>
+      </div>
+    </div>
+
+    <div class="admin-panel hidden" id="adminPanelMonitoring">
+      <div class="glass-card">
+        <h3 class="panel-heading">Voter monitoring</h3>
+        <p class="panel-note">Updates automatically as students register and vote.</p>
+        <table class="dark-table" id="monitorTable">
+          <thead><tr><th>Student ID</th><th>Name</th><th>Voting login</th><th>Vote status</th><th>Timestamp</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="admin-panel hidden" id="adminPanelResults">
+      <div class="glass-card" id="resultsCard"></div>
+    </div>
+
+    <div class="admin-panel hidden" id="adminPanelAdmins">
+      <div class="glass-card">
+        <h3 class="panel-heading">Add an admin account</h3>
+        <div class="form-grid">
+          <div class="field-dark">
+            <label>Full name</label>
+            <input type="text" id="admName" placeholder="Full name">
+          </div>
+          <div class="field-dark">
+            <label>Gmail address</label>
+            <input type="email" id="admEmail2" placeholder="name@gmail.com">
+          </div>
+          <div class="field-dark">
+            <label>Username</label>
+            <input type="text" id="admUsername2" placeholder="Username">
+          </div>
+          <div class="field-dark">
+            <label>Password</label>
+            <input type="password" id="admPassword2" placeholder="Password">
+          </div>
+        </div>
+        <p class="error-text" id="admError2"></p>
+        <button class="btn-gradient" id="addAdminBtn">Add admin</button>
+      </div>
+      <div class="glass-card">
+        <h3 class="panel-heading" id="adminListHeading">Admin accounts (0)</h3>
+        <table class="dark-table" id="adminTable">
+          <thead><tr><th>Name</th><th>Username</th><th>Gmail</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <button class="danger-link" id="resetDemo">Reset demo data</button>
+  </div>
+
+</div>
+
+<!-- Registration result pop-up (email confirmation, or dev fallback) -->
+<div class="overlay" id="credOverlay">
+  <div class="cred-modal cred-modal-lg">
+    <button class="icon-btn cred-close" id="credClose" aria-label="Close">&times;</button>
+    <p class="cred-eyebrow" id="credEyebrow">Registration</p>
+    <h3 class="cred-name" id="credName">Check your email</h3>
+    <p class="cred-note" id="credMessage" style="margin-top:0;"></p>
+    <div id="credDevBox" class="hidden">
+      <div class="cred-row">
+        <span class="cred-label">Username (dev preview &mdash; email not configured)</span>
+        <div class="cred-value-row">
+          <span class="cred-value" id="credUser">&nbsp;</span>
+          <button class="copy-btn" data-copy-target="credUser">Copy</button>
+        </div>
+      </div>
+      <div class="cred-row">
+        <span class="cred-label">Password (dev preview)</span>
+        <div class="cred-value-row">
+          <span class="cred-value" id="credPass">&nbsp;</span>
+          <button class="copy-btn" data-copy-target="credPass">Copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Admin OTP verification -->
+<div class="overlay" id="otpOverlay">
+  <div class="cred-modal">
+    <p class="cred-eyebrow">Admin verification</p>
+    <h3 class="cred-name">Enter the code we sent</h3>
+    <p class="panel-note" id="otpTarget" style="margin-bottom:16px;"></p>
+    <div class="field-dark">
+      <input type="text" id="otpInput" placeholder="6-digit code" inputmode="numeric" maxlength="6">
+    </div>
+    <p class="error-text" id="otpError"></p>
+    <button class="btn-gradient" id="otpSubmit">Verify &amp; continue</button>
+    <p class="cred-note" id="otpResend">Didn't get it? <a href="#" id="otpResendLink">Resend code</a></p>
+    <p class="cred-note" id="otpDemoNote" style="opacity:.8;"></p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="config.js"></script>
+<script src="script.js"></script>
+</body>
+</html>

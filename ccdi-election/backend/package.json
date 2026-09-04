@@ -1,0 +1,26 @@
+{
+  "name": "ccdi-election-backend",
+  "version": "1.0.0",
+  "description": "API for the CCDI Supreme Student Government Election (Express + Supabase)",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js",
+    "import-students": "node scripts/import-students.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.1",
+    "nodemailer": "^6.9.14",
+    "papaparse": "^5.4.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
