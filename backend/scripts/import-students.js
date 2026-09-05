@@ -47,7 +47,11 @@ async function main() {
     console.error("CSV parse errors:", parsed.errors.slice(0, 5));
     process.exit(1);
   }
-
+const { data, error } = await supabase
+  .from('students')
+  .select('*')
+  .eq('id_no', studentId);
+  
   const rows = parsed.data
     .map((r) => {
       const get = (obj, keys) => {
