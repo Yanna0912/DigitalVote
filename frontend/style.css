@@ -221,6 +221,14 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .field input::placeholder, .field-dark input::placeholder{color:#5B6389;}
 .field input:focus, .field-dark input:focus{border-color:var(--blue); background:rgba(59,107,245,.06);}
 
+.field label.show-password-toggle {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  cursor: pointer;
+  margin-top: 6px;
+  width: fit-content; /* Para hindi sakupin ang buong width */
+}
 .btn{
   width:100%;
   border:none; border-radius:12px;

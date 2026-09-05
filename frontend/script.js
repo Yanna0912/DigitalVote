@@ -171,6 +171,15 @@ async function handleRegister(idInput, emailInput) {
   }
 }
 
+document.addEventListener('change', function (e) {
+  if (e.target && e.target.id === 'showLoginPass') {
+    const passwordInput = document.getElementById('loginPass');
+    if (passwordInput) {
+      passwordInput.type = e.target.checked ? 'text' : 'password';
+    }
+  }
+});
+
 async function handleLogin(username, password) {
   const errorEl = document.getElementById("loginError");
   errorEl.textContent = "";
