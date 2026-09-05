@@ -1,17 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 :root{
-  --bg:#f1f2f7;
-  --bg-2:#eaecf1;
+  --bg:#a0d2fa;
+  --bg-2:#9ec4fc;
   --panel:#0E1428;
   --panel-2:#121A34;
   --line:rgba(255,255,255,.09);
   --line-strong:rgba(255,255,255,.16);
   --ink:#EAEEFB;
   --muted:#8B93B8;
-  --blue:#3B6BF5;
+  --blue:#0d44e9;
   --blue-light:#6C8AF0;
-  --teal:#14C7B5;
+  --teal:#ff6767;
   --indigo:#5B5CF0;
   --red:#F0475C;
   --success:#22C77E;
@@ -76,15 +76,24 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 /* ---------- hero / highlight ---------- */
 .hero{
   text-align:center;
-  padding:26px clamp(15px,6vw,56px) 8px;
+  padding:36px clamp(20px,6vw,56px) 8px;
 }
-.hero-eyebrow{
-  margin:0 0 10px; font-size:15px; font-weight:700; letter-spacing:1.8px;
-  text-transform:uppercase; color:var(--teal);
+.hero-eyebrow {
+  display: inline-block;
+  background-color: #f0fdf4;
+  color: #0d9488;
+  border: 1px solid #ccfbf1;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 20px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
 }
 .hero-title{
-  font-size:clamp(25px,4vw,25px); font-weight:800; color:var(--ink);
-  line-height:1.3; margin:0 auto; max-width:900px;
+  font-size:clamp(58px,4vw,54px); font-weight:800; color:var(--ink);
+  line-height:1; margin:0 auto; max-width:960px;
 }
 .hero-title mark{
   background:linear-gradient(120deg, var(--blue), var(--teal));
@@ -100,6 +109,10 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
   padding: 40px 20px;
   gap: 40px; 
   
@@ -115,10 +128,10 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 
 .left-space img {
   width: 100%;
-  max-width: 760px; /* Limitahan ang lapad ng maskot */
+  max-width: 580px; /* Limitahan ang lapad ng maskot */
   height: auto;
   display: block;
-  margin: 0 auto;
+  margin-right:  auto;
 }
 
 .right-card-area {
@@ -199,7 +212,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   transition:transform .12s ease, box-shadow .12s ease, opacity .15s;
 }
 .btn-primary, .btn-gradient{
-  background:linear-gradient(100deg, var(--blue), var(--teal));
+  background:linear-gradient(var(--blue));
   color:#fff;
   box-shadow:0 14px 26px -10px rgba(59,107,245,.55);
 }
@@ -268,7 +281,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
 /* ---------- hint ---------- */
-.hint{margin-top:18px; font-size:12px; color:var(--muted); text-align:center; max-width:480px;}
+.hint{margin-top:5px; font: size 23px; color:var(--panel); text-align:left; max-width:480px;}
 
 /* ---------- overlays / modals ---------- */
 .overlay{

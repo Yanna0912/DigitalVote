@@ -133,7 +133,7 @@ function registerFormHtml() {
     </div>
     <p class="error-text" id="regError"></p>
     <button class="btn btn-primary" id="btnRegister">Register &amp; get my login</button>
-    <p class="panel-note" style="margin-top:14px;">First time, this saves your email against your Student ID and emails you a username and password. After that, your ID + email will just tell you to log in below.</p>`;
+    <p class="panel-note" style="margin-top:14px;">Fill up with your Student ID and email to get your login credentials that will be sent to your email to access the voting system.</p>`;
 }
 function loginFormHtml() {
   return `
@@ -142,6 +142,9 @@ function loginFormHtml() {
     </div>
     <div class="field">
       <input type="password" id="loginPass" placeholder="Password" autocomplete="off">
+      <label class="show-password-toggle">
+        <input type="checkbox" id="showLoginPass"> Show Password
+      </label>
     </div>
     <p class="error-text" id="loginError"></p>
     <button class="btn btn-primary" id="btnLogin">Log in</button>`;
