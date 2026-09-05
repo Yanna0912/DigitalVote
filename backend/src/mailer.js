@@ -6,13 +6,19 @@ function getTransporter() {
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
     return null;
   }
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 465),
-    secure: String(process.env.SMTP_SECURE || "true") === "true",
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  });
-  return transporter;
+  try {
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 465),
+      secure: String(process.env.SMTP_SECURE || "true") === "true",
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+    return transporter;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[mailer] Failed to create transporter:", err.message);
+    return null;
+  }
 }
 
 /**
@@ -28,16 +34,24 @@ async function sendMail({ to, subject, html, text }) {
       `[mailer] SMTP is not configured — email NOT actually sent.\n` +
       `  To: ${to}\n  Subject: ${subject}\n  Body:\n${text || html}\n`
     );
-    return { delivered: false };
+    return { delivered: false, reason: "not_configured" };
   }
-  await t.sendMail({
-    from: process.env.MAIL_FROM || process.env.SMTP_USER,
-    to,
-    subject,
-    html,
-    text,
-  });
-  return { delivered: true };
+  try {
+    await t.sendMail({
+      from: process.env.MAIL_FROM || process.env.SMTP_USER,
+      to,
+      subject,
+      html,
+      text,
+    });
+    return { delivered: true };
+  } catch (err) {
+    // A bad SMTP password/host, or the provider rejecting the message,
+    // should degrade to the dev-preview fallback — not 500 the request.
+    // eslint-disable-next-line no-console
+    console.error(`[mailer] Send failed: ${err.message}\n  To: ${to}\n  Subject: ${subject}`);
+    return { delivered: false, reason: "send_failed", error: err.message };
+  }
 }
 
 function studentCredentialsEmail({ name, username, password }) {
