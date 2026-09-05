@@ -160,6 +160,24 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   box-shadow:var(--shadow);
   overflow:hidden;
 }
+/* Responsive para sa mga mobile phones (screens 768px pababa) */
+@media (max-width: 768px) {
+  .main-container {
+    flex-direction: column !important; /* Ginagawa silang patayo sa maliit na screen */
+    align-items: center !important;
+    text-align: center;
+    padding: 20px 10px;
+  }
+
+  .left-space img {
+    max-width: 280px; /* Mas maliit na size para sakto sa phone */
+    margin: 0 auto 20px auto; /* I-center ang image at lagyan ngspace sa baba */
+  }
+
+  .right-card-area {
+    width: 100%;
+  }
+}
 
 .panel{
   position:relative;
