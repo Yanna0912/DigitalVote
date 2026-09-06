@@ -38,3 +38,11 @@ app.listen(port, () => {
   // eslint-disable-next-line no-console
   console.log(`CCDI election backend listening on port ${port}`);
 });
+const express = require('express');
+const router = express.Router();
+// Supabase query dito para makuha ang mga estudyante
+router.get('/', async (req, res) => {
+  // halimbawa ng logic galing Supabase
+  res.json({ students: [] });
+});
+module.exports = router;
