@@ -26,45 +26,16 @@ router.post("/lookup", asyncHandler(async (req, res) => {
     return res.status(400).json({ error: "That doesn't look like a valid email address." });
   }
 
- router.post("/student/lookup", async (req, res) => {
-  const { id_no, email } = req.body;
+  const { data: student, error } = await supabase
+    .from("students")
+    .select("*")
+    .eq("id_no", id_no)
+    .maybeSingle();
 
-  try {
-    // 1. Unang iche-check kung aabot o nasa record ang ID ng estudyante
-    const { data: student, error: fetchError } = await supabase
-      .from("students")
-      .select("*")
-      .eq("id_no", id_no)
-      .maybeSingle();
-
-    if (fetchError) {
-      console.error("SUPABASE FETCH ERROR:", fetchError);
-      return res.status(500).json({ error: "Database error looking up your Student ID." });
-    }
-
-    if (!student) {
-      return res.status(404).json({ error: "That Student ID isn't in our records." });
-    }
-
-    // 2. Kung nahanap, i-update o i-save ang email sa kanilang record
-    const { error: updateError } = await supabase
-      .from("students")
-      .update({ email: email }) // Dito masise-save ang email nila
-      .eq("id_no", id_no);
-
-    if (updateError) {
-      console.error("SUPABASE UPDATE ERROR:", updateError);
-      return res.status(500).json({ error: "Failed to save email to student record." });
-    }
-
-    // 3. Ibalik ang tagumpay sa frontend
-    return res.status(200).json({ message: "Student verified and email saved successfully.", student });
-
-  } catch (err) {
-    console.error("SERVER ERROR:", err);
-    return res.status(500).json({ error: "Internal server error." });
+  if (error) return res.status(500).json({ error: "Database error looking up your Student ID." });
+  if (!student) {
+    return res.status(404).json({ error: "That Student ID isn't in our records. Check with the election officer." });
   }
-});
 
   if (student.email) {
     if (student.email.toLowerCase() !== email.toLowerCase()) {
