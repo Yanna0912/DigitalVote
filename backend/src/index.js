@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 
-const studentAuthRoutes = require("./routes/studentAuth");
+const studentAuthRoutes = require("./routes/students");
 const adminAuthRoutes = require("./routes/adminAuth");
 const unifiedAuthRoutes = require("./routes/authUnified");
 const ballotRoutes = require("./routes/ballot");
