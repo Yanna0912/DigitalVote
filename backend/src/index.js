@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 
-const studentAuthRoutes = require("./routes/students");
+const studentAuthRoutes = require("./routes/studentAuth");
 const adminAuthRoutes = require("./routes/adminAuth");
 const unifiedAuthRoutes = require("./routes/authUnified");
 const ballotRoutes = require("./routes/ballot");
@@ -19,7 +19,7 @@ app.get("/", (_req, res) => {
 });
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
-app.use("/api/auth/students", studentAuthRoutes);
+app.use("/api/auth/student", studentAuthRoutes);
 app.use("/api/auth/admin", adminAuthRoutes);
 app.use("/api/auth", unifiedAuthRoutes); // /api/auth/login
 app.use("/api", ballotRoutes); // /api/me, /api/ballot, /api/vote
