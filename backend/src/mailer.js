@@ -18,6 +18,10 @@ function getTransporter() {
       port: Number(process.env.SMTP_PORT || 465),
       secure: String(process.env.SMTP_SECURE || "true") === "true",
       family: 4,
+      // Custom lookup wrapper to strictly force IPv4 resolution
+      lookup: (hostname, options, callback) => {
+        dns.lookup(hostname, { family: 4 }, callback);
+      },
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
     return transporter;
@@ -27,6 +31,7 @@ function getTransporter() {
     return null;
   }
 }
+
 /**
  * Sends an email. If SMTP isn't configured yet, logs the message to the
  * server console instead of throwing, so the rest of the app (and local
