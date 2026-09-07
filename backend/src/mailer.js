@@ -11,6 +11,7 @@ function getTransporter() {
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT || 465),
       secure: String(process.env.SMTP_SECURE || "true") === "true",
+      family: 4, // <-- Force IPv4 to prevent IPv6 ENETUNREACH errors on Render
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
     return transporter;
