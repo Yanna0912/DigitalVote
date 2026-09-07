@@ -1,4 +1,10 @@
 const nodemailer = require("nodemailer");
+const dns = require("dns");
+
+// Force Node.js to resolve IPv4 addresses first globally
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder("ipv4first");
+}
 
 let transporter = null;
 function getTransporter() {
@@ -11,7 +17,7 @@ function getTransporter() {
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT || 465),
       secure: String(process.env.SMTP_SECURE || "true") === "true",
-      family: 4, // <-- Force IPv4 to prevent IPv6 ENETUNREACH errors on Render
+      family: 4,
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
     return transporter;
@@ -21,7 +27,6 @@ function getTransporter() {
     return null;
   }
 }
-
 /**
  * Sends an email. If SMTP isn't configured yet, logs the message to the
  * server console instead of throwing, so the rest of the app (and local
