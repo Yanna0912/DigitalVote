@@ -252,6 +252,7 @@ document.querySelectorAll(".copy-btn").forEach((btn) => {
 });
 
 /* ---------------- Step: VOTE ---------------- */
+/* ---------------- Step: VOTE ---------------- */
 async function renderVoteStep() {
   panel.innerHTML = `<div class="panel-content"><p class="panel-note">Loading the ballot&hellip;</p></div>`;
   let ballot;
@@ -276,41 +277,24 @@ async function renderVoteStep() {
 
   panel.innerHTML = `
     <div class="panel-content">
-      <p class="eyebrow">Hi, ${firstName(currentStudent?.name || "")} &middot; official ballot</p>
-      <h2 class="step-title" style="font-size:22px;">Cast your vote</h2>
-      ${ballotHtml || '<p class="error-text" style="color:var(--muted);">No candidates have been set up yet. Please check with the election officer.</p>'}
-      <p class="error-text" id="voteError"></p>
-      <button class="btn btn-primary" id="btnSubmitVote" style="margin-top:6px;" ${ballot.length ? "" : "disabled"}>Submit vote</button>
+      <div class="panel-header">
+        <p class="eyebrow">Hi, ${firstName(currentStudent?.name || "")} &middot; official ballot</p>
+        <h2 class="step-title" style="font-size:22px;">Cast your vote</h2>
+      </div>
+
+      <!-- Wrapped ballot content in a flexible container -->
+      <div class="ballot-container">
+        ${ballotHtml || '<p class="error-text" style="color:var(--muted);">No candidates have been set up yet. Please check with the election officer.</p>'}
+      </div>
+
+      <div class="panel-footer" style="margin-top: auto;">
+        <p class="error-text" id="voteError"></p>
+        <button class="btn btn-primary" id="btnSubmitVote" style="width: 100%; padding: 12px;" ${ballot.length ? "" : "disabled"}>Submit vote</button>
+      </div>
     </div>`;
 
   document.getElementById("btnSubmitVote").onclick = () => submitVote(ballot);
 }
-
-async function submitVote(ballot) {
-  const errorEl = document.getElementById("voteError");
-  const votes = {};
-  for (let ri = 0; ri < ballot.length; ri++) {
-    const race = ballot[ri];
-    const checked = document.querySelector(`input[name="race-${ri}"]:checked`);
-    if (!checked) {
-      errorEl.textContent = `Please select a candidate for ${race.position}.`;
-      return;
-    }
-    votes[race.position] = checked.value;
-  }
-  errorEl.textContent = "";
-
-  const btn = document.getElementById("btnSubmitVote");
-  btn.disabled = true;
-  try {
-    const res = await api("/vote", { method: "POST", token: studentToken, body: { votes } });
-    showConfirmation({ name: currentStudent?.name || "", votedAt: res.votedAt });
-  } catch (err) {
-    errorEl.textContent = err.error || "Couldn't submit your vote. Please try again.";
-    btn.disabled = false;
-  }
-}
-
 /* ---------------- Confirmation / already-voted / waiting takeovers ---------------- */
 function showConfirmation(record) {
   takeover.className = "takeover confirm show";
