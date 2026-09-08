@@ -73,7 +73,7 @@ function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 const voterSection = document.getElementById("voterSection");
 const adminSection = document.getElementById("adminSection");
 const panel = document.getElementById("panel");
-const takeover = document.getElementById("takeover");
+const voteFullscreen = document.getElementById("voteFullscreen");
 
 const credOverlay = document.getElementById("credOverlay");
 const credEyebrow = document.getElementById("credEyebrow");
@@ -92,7 +92,8 @@ let lastDevCredentials = null;
 /* ---------------- Step: REGISTER / LOG IN ---------------- */
 function renderEntryStep(tab) {
   activeTab = tab || activeTab || "register";
-  takeover.classList.remove("show");
+  voteFullscreen.classList.remove("show");
+  voterSection.classList.remove("hidden");
   if (waitingPoll) { clearInterval(waitingPoll); waitingPoll = null; }
 
   panel.innerHTML = `
@@ -133,7 +134,7 @@ function registerFormHtml() {
     </div>
     <p class="error-text" id="regError"></p>
     <button class="btn btn-primary" id="btnRegister">Register &amp; get my login</button>
-    <p class="panel-note" style="margin-top:14px;">Fill up with your Student ID and email to get your login credentials that will be sent to your email to access the voting system.</p>`;
+    <p class="panel-note" style="margin-top:14px;">First time, this saves your email against your Student ID and emails you a username and password. After that, your ID + email will just tell you to log in below.</p>`;
 }
 function loginFormHtml() {
   return `
@@ -142,9 +143,6 @@ function loginFormHtml() {
     </div>
     <div class="field">
       <input type="password" id="loginPass" placeholder="Password" autocomplete="off">
-      <label class="show-password-toggle">
-        <input type="checkbox" id="showLoginPass"> Show Password
-      </label>
     </div>
     <p class="error-text" id="loginError"></p>
     <button class="btn btn-primary" id="btnLogin">Log in</button>`;
@@ -170,15 +168,6 @@ async function handleRegister(idInput, emailInput) {
     btn.disabled = false;
   }
 }
-
-document.addEventListener('change', function (e) {
-  if (e.target && e.target.id === 'showLoginPass') {
-    const passwordInput = document.getElementById('loginPass');
-    if (passwordInput) {
-      passwordInput.type = e.target.checked ? 'text' : 'password';
-    }
-  }
-});
 
 async function handleLogin(username, password) {
   const errorEl = document.getElementById("loginError");
@@ -251,21 +240,29 @@ document.querySelectorAll(".copy-btn").forEach((btn) => {
   });
 });
 
-/* ---------------- Step: VOTE ---------------- */
-/* ---------------- Step: VOTE ---------------- */
+/* ---------------- Full-screen voting experience ---------------- */
+/* waiting / ballot / confirmation / already-voted all render here,   */
+/* replacing the whole screen instead of living in the small login card. */
+function enterFullscreen(mode) {
+  voterSection.classList.add("hidden");
+  voteFullscreen.className = `vote-fullscreen show ${mode}`;
+}
+
 async function renderVoteStep() {
-  panel.innerHTML = `<div class="panel-content"><p class="panel-note">Loading the ballot&hellip;</p></div>`;
+  enterFullscreen("ballot");
+  voteFullscreen.innerHTML = `<div class="ballot-inner"><p class="panel-note">Loading the ballot&hellip;</p></div>`;
+
   let ballot;
   try {
     const data = await api("/ballot", { token: studentToken });
     ballot = data.ballot || [];
   } catch (err) {
     if (err.error && /not open/i.test(err.error)) { showWaiting(currentStudent); return; }
-    panel.innerHTML = `<div class="panel-content"><p class="error-text">${err.error || "Couldn't load the ballot."}</p></div>`;
+    voteFullscreen.innerHTML = `<div class="ballot-inner"><p class="error-text">${err.error || "Couldn't load the ballot."}</p></div>`;
     return;
   }
 
-  const ballotHtml = ballot.map((race, ri) => `
+  const racesHtml = ballot.map((race, ri) => `
     <fieldset class="race" data-position="${race.position}">
       <legend class="eyebrow" style="margin-bottom:8px;">${race.position}</legend>
       ${race.candidates.map((c) => `
@@ -275,30 +272,50 @@ async function renderVoteStep() {
         </label>`).join("")}
     </fieldset>`).join("");
 
-  panel.innerHTML = `
-    <div class="panel-content">
-      <div class="panel-header">
+  voteFullscreen.innerHTML = `
+    <div class="ballot-inner">
+      <div class="ballot-header">
         <p class="eyebrow">Hi, ${firstName(currentStudent?.name || "")} &middot; official ballot</p>
-        <h2 class="step-title" style="font-size:22px;">Cast your vote</h2>
+        <h2>Cast your vote</h2>
       </div>
-
-      <!-- Wrapped ballot content in a flexible container -->
-      <div class="ballot-container">
-        ${ballotHtml || '<p class="error-text" style="color:var(--muted);">No candidates have been set up yet. Please check with the election officer.</p>'}
-      </div>
-
-      <div class="panel-footer" style="margin-top: auto;">
-        <p class="error-text" id="voteError"></p>
-        <button class="btn btn-primary" id="btnSubmitVote" style="width: 100%; padding: 12px;" ${ballot.length ? "" : "disabled"}>Submit vote</button>
+      ${ballot.length ? `<div class="ballot-grid">${racesHtml}</div>` : '<p class="error-text" style="color:var(--muted);">No candidates have been set up yet. Please check with the election officer.</p>'}
+      <p class="error-text" id="voteError"></p>
+      <div class="ballot-submit-row">
+        <button class="btn btn-primary" id="btnSubmitVote" ${ballot.length ? "" : "disabled"}>Submit vote</button>
       </div>
     </div>`;
 
   document.getElementById("btnSubmitVote").onclick = () => submitVote(ballot);
 }
-/* ---------------- Confirmation / already-voted / waiting takeovers ---------------- */
+
+async function submitVote(ballot) {
+  const errorEl = document.getElementById("voteError");
+  const votes = {};
+  for (let ri = 0; ri < ballot.length; ri++) {
+    const race = ballot[ri];
+    const checked = document.querySelector(`input[name="race-${ri}"]:checked`);
+    if (!checked) {
+      errorEl.textContent = `Please select a candidate for ${race.position}.`;
+      return;
+    }
+    votes[race.position] = checked.value;
+  }
+  errorEl.textContent = "";
+
+  const btn = document.getElementById("btnSubmitVote");
+  btn.disabled = true;
+  try {
+    const res = await api("/vote", { method: "POST", token: studentToken, body: { votes } });
+    showConfirmation({ name: currentStudent?.name || "", votedAt: res.votedAt });
+  } catch (err) {
+    errorEl.textContent = err.error || "Couldn't submit your vote. Please try again.";
+    btn.disabled = false;
+  }
+}
+
 function showConfirmation(record) {
-  takeover.className = "takeover confirm show";
-  takeover.innerHTML = `
+  enterFullscreen("confirm");
+  voteFullscreen.innerHTML = `
     <div class="takeover-inner">
       <div class="status-badge">&#10003;</div>
       <h2>Thank you, ${firstName(record.name)}!</h2>
@@ -311,8 +328,8 @@ function showConfirmation(record) {
 }
 
 function showAlreadyVoted(record) {
-  takeover.className = "takeover blocked show";
-  takeover.innerHTML = `
+  enterFullscreen("blocked");
+  voteFullscreen.innerHTML = `
     <div class="takeover-inner">
       <div class="status-badge">!</div>
       <h2>Already voted</h2>
@@ -323,15 +340,19 @@ function showAlreadyVoted(record) {
 }
 
 function showWaiting(student) {
-  takeover.className = "takeover waiting show";
-  takeover.innerHTML = `
+  enterFullscreen("waiting");
+  voteFullscreen.innerHTML = `
     <div class="takeover-inner">
       <div class="spinner"></div>
       <h2>Almost there, ${firstName(student.name)}</h2>
-      <p>Voting hasn't started yet. This screen will move on by itself once the election officer opens the polls.</p>
-      <button class="btn-secondary" id="btnCheckAgain">Check now</button>
+      <p>Voting hasn't started yet. This screen will move on by itself once the election officer opens the polls &mdash; or come back later.</p>
+      <div class="waiting-actions">
+        <button class="btn-secondary" id="btnCheckAgain">Check now</button>
+        <button class="btn-secondary" id="btnExitWaiting">Exit</button>
+      </div>
     </div>`;
   document.getElementById("btnCheckAgain").onclick = () => checkWaiting();
+  document.getElementById("btnExitWaiting").onclick = () => resetToStart();
   if (waitingPoll) clearInterval(waitingPoll);
   waitingPoll = setInterval(() => checkWaiting(true), 4000);
 }
@@ -357,51 +378,9 @@ function resetToStart() {
   if (waitingPoll) { clearInterval(waitingPoll); waitingPoll = null; }
   clearStudentToken();
   currentStudent = null;
-  takeover.classList.remove("show");
+  voteFullscreen.classList.remove("show");
   renderEntryStep("register");
 }
-
-/* ---------------- Admin self sign-up ---------------- */
-function renderAdminSignupStep() {
-  activeTab = "adminSignup";
-  takeover.classList.remove("show");
-  panel.innerHTML = `
-    <div class="panel-content">
-      <p class="eyebrow">Election officer access</p>
-      <h2 class="step-title">Sign up for admin access</h2>
-      <div class="field"><input type="text" id="admFullName" placeholder="Full name" autocomplete="off"></div>
-      <div class="field"><input type="email" id="admEmail" placeholder="Gmail address" autocomplete="off"></div>
-      <div class="field"><input type="text" id="admUsername" placeholder="Choose a username" autocomplete="off"></div>
-      <div class="field"><input type="password" id="admPassword" placeholder="Choose a password" autocomplete="off"></div>
-      <p class="error-text" id="admError"></p>
-      <button class="btn btn-primary" id="admSubmit">Create admin account</button>
-      <button class="btn-secondary" id="admBack">Back to voter login</button>
-    </div>`;
-  document.getElementById("admSubmit").onclick = handleAdminSignup;
-  document.getElementById("admBack").onclick = () => renderEntryStep("register");
-}
-
-async function handleAdminSignup() {
-  const errorEl = document.getElementById("admError");
-  errorEl.textContent = "";
-  const name = document.getElementById("admFullName").value.trim();
-  const email = document.getElementById("admEmail").value.trim();
-  const username = document.getElementById("admUsername").value.trim();
-  const password = document.getElementById("admPassword").value;
-
-  const btn = document.getElementById("admSubmit");
-  btn.disabled = true;
-  try {
-    await api("/auth/admin/signup", { method: "POST", body: { name, email, username, password } });
-    renderEntryStep("login");
-    document.getElementById("loginUser").value = username;
-  } catch (err) {
-    errorEl.textContent = err.error || "Something went wrong. Please try again.";
-  } finally {
-    btn.disabled = false;
-  }
-}
-document.getElementById("adminSignupLink").onclick = (e) => { e.preventDefault(); renderAdminSignupStep(); };
 
 /* ---------------- Admin OTP verification ---------------- */
 function startAdminOtp(data) {
@@ -445,19 +424,20 @@ document.getElementById("otpResendLink").onclick = async (e) => {
 /* ---------------- Admin dashboard ---------------- */
 function openAdminDashboard(admin) {
   voterSection.classList.add("hidden");
+  voteFullscreen.classList.remove("show");
   adminSection.classList.remove("hidden");
-  document.getElementById("adminWho").textContent = `Signed in as ${admin.name} \u00b7 ${admin.email}`;
-  switchAdminTab("candidates");
+  document.getElementById("adminWho").textContent = `${admin.name} \u00b7 ${admin.email}`;
+  switchAdminTab("dashboard");
   refreshAll();
 }
 function refreshAll() {
   renderStatRow();
-  renderCandidateTable();
-  renderRosterTable();
-  renderSiteQr();
-  renderMonitorTable();
   renderResultsPanel();
-  renderAdminTable();
+  renderBlockGrid();
+  renderRosterTable();
+  renderCandidateList();
+  renderSiteQr();
+  renderAdminList();
 }
 document.getElementById("adminLogout").onclick = () => {
   adminSection.classList.add("hidden");
@@ -468,16 +448,16 @@ document.getElementById("adminLogout").onclick = () => {
 };
 
 function switchAdminTab(tab) {
-  document.querySelectorAll(".tab-pill").forEach((b) => b.classList.toggle("active", b.dataset.admintab === tab));
-  ["candidates", "students", "qrcodes", "monitoring", "results", "admins"].forEach((t) => {
+  document.querySelectorAll(".sidebar-link").forEach((b) => b.classList.toggle("active", b.dataset.admintab === tab));
+  ["dashboard", "students", "candidates", "qrcodes", "admins"].forEach((t) => {
     document.getElementById("adminPanel" + capitalize(t)).classList.toggle("hidden", t !== tab);
   });
 }
-document.querySelectorAll(".tab-pill").forEach((btn) => {
+document.querySelectorAll(".sidebar-link").forEach((btn) => {
   btn.addEventListener("click", () => switchAdminTab(btn.dataset.admintab));
 });
 
-/* ---- stat row + election status toggle ---- */
+/* ---- dashboard: stats + election status toggle + live results ---- */
 async function renderStatRow() {
   let stats;
   try {
@@ -506,153 +486,6 @@ async function renderStatRow() {
   };
 }
 
-/* ---- candidate management ---- */
-async function renderCandidateTable() {
-  let candidates;
-  try {
-    const data = await api("/admin/candidates", { token: adminToken });
-    candidates = data.candidates || [];
-  } catch (_err) {
-    candidates = [];
-  }
-  document.getElementById("candidateListHeading").textContent = `Candidate list (${candidates.length})`;
-  const tbody = document.querySelector("#candidateTable tbody");
-  tbody.innerHTML = candidates.length
-    ? candidates.map((c) => `
-      <tr>
-        <td>${c.position}</td><td>${c.name}</td><td>${c.slogan || "&mdash;"}</td>
-        <td><button class="row-remove" data-remove-cand="${c.id}">&times;</button></td>
-      </tr>`).join("")
-    : `<tr><td colspan="4" class="table-empty">No candidates yet.</td></tr>`;
-
-  tbody.querySelectorAll("[data-remove-cand]").forEach((btn) => {
-    btn.onclick = async () => {
-      try {
-        await api(`/admin/candidates/${btn.dataset.removeCand}`, { method: "DELETE", token: adminToken });
-        renderCandidateTable(); renderResultsPanel();
-      } catch (err) { alert(err.error || "Couldn't remove that candidate."); }
-    };
-  });
-}
-document.getElementById("addCandidateBtn").onclick = async () => {
-  const position = document.getElementById("candPosition").value.trim();
-  const name = document.getElementById("candName").value.trim();
-  const slogan = document.getElementById("candSlogan").value.trim();
-  if (!position || !name) return;
-  try {
-    await api("/admin/candidates", { method: "POST", token: adminToken, body: { position, name, slogan } });
-    document.getElementById("candPosition").value = "";
-    document.getElementById("candName").value = "";
-    document.getElementById("candSlogan").value = "";
-    renderCandidateTable(); renderResultsPanel();
-  } catch (err) { alert(err.error || "Couldn't add that candidate."); }
-};
-
-/* ---- roster management ---- */
-let cachedRoster = [];
-async function renderRosterTable() {
-  try {
-    const data = await api("/admin/students", { token: adminToken });
-    cachedRoster = data.students || [];
-  } catch (_err) {
-    cachedRoster = [];
-  }
-  document.getElementById("rosterListHeading").textContent = `Roster (${cachedRoster.length})`;
-  const tbody = document.querySelector("#rosterTable tbody");
-  tbody.innerHTML = cachedRoster.length
-    ? cachedRoster.map((s) => `
-      <tr>
-        <td>${s.id_no}</td><td>${s.name}</td><td>${s.block || "&mdash;"}</td><td>${s.email || "&mdash;"}</td>
-        <td><button class="row-remove" data-remove-student="${s.id_no}">&times;</button></td>
-      </tr>`).join("")
-    : `<tr><td colspan="5" class="table-empty">No students yet.</td></tr>`;
-
-  tbody.querySelectorAll("[data-remove-student]").forEach((btn) => {
-    btn.onclick = async () => {
-      try {
-        await api(`/admin/students/${encodeURIComponent(btn.dataset.removeStudent)}`, { method: "DELETE", token: adminToken });
-        renderRosterTable(); renderMonitorTable(); renderStatRow();
-      } catch (err) { alert(err.error || "Couldn't remove that student."); }
-    };
-  });
-}
-document.getElementById("addStudentBtn").onclick = async () => {
-  const errorEl = document.getElementById("rosterError");
-  errorEl.textContent = "";
-  const id_no = document.getElementById("rosterId").value.trim();
-  const name = document.getElementById("rosterName").value.trim();
-  const block = document.getElementById("rosterBlock").value.trim();
-  if (!id_no || !name) { errorEl.textContent = "Student ID and name are required."; return; }
-  try {
-    await api("/admin/students", { method: "POST", token: adminToken, body: { id_no, name, block } });
-    document.getElementById("rosterId").value = "";
-    document.getElementById("rosterName").value = "";
-    document.getElementById("rosterBlock").value = "";
-    renderRosterTable(); renderStatRow();
-  } catch (err) { errorEl.textContent = err.error || "Couldn't add that student."; }
-};
-
-document.getElementById("importCsvBtn").onclick = async () => {
-  const errorEl = document.getElementById("csvError");
-  errorEl.textContent = "";
-  const fileInput = document.getElementById("csvFileInput");
-  const file = fileInput.files[0];
-  if (!file) { errorEl.textContent = "Choose a CSV file first."; return; }
-  const btn = document.getElementById("importCsvBtn");
-  btn.disabled = true;
-  try {
-    const data = await apiUpload("/admin/students/import", file, adminToken);
-    fileInput.value = "";
-    renderRosterTable(); renderStatRow(); renderMonitorTable();
-    alert(`Imported/updated ${data.count} student(s).`);
-  } catch (err) {
-    errorEl.textContent = err.error || "Import failed.";
-  } finally {
-    btn.disabled = false;
-  }
-};
-
-/* ---- site QR code (leads back to this site, not a per-student code) ---- */
-function renderSiteQr() {
-  const url = window.location.href.split("#")[0];
-  document.getElementById("siteQrUrl").textContent = url;
-  const box = document.getElementById("siteQrBox");
-  box.innerHTML = "";
-  if (typeof QRCode !== "undefined") {
-    new QRCode(box, { text: url, width: 170, height: 170, colorDark: "#0A0F22", colorLight: "#ffffff" });
-  }
-}
-document.getElementById("downloadQrBtn").onclick = () => {
-  const canvas = document.querySelector("#siteQrBox canvas");
-  if (!canvas) return;
-  const link = document.createElement("a");
-  link.download = "ccdi-election-qr.png";
-  link.href = canvas.toDataURL("image/png");
-  link.click();
-};
-
-/* ---- monitoring ---- */
-async function renderMonitorTable() {
-  let students;
-  try {
-    const data = await api("/admin/students", { token: adminToken });
-    students = data.students || [];
-  } catch (_err) {
-    students = [];
-  }
-  const tbody = document.querySelector("#monitorTable tbody");
-  tbody.innerHTML = students.length
-    ? students.map((v) => `
-      <tr>
-        <td>${v.id_no}</td><td>${v.name}</td>
-        <td>${v.registered ? '<span class="status-pill yes">Generated</span>' : '<span class="status-pill no">Not yet</span>'}</td>
-        <td>${v.voted ? '<span class="status-pill yes">Voted</span>' : '<span class="status-pill no">Not yet</span>'}</td>
-        <td>${timeStamp(v.voted_at || v.registered_at)}</td>
-      </tr>`).join("")
-    : `<tr><td colspan="5" class="table-empty">No students in roster.</td></tr>`;
-}
-
-/* ---- results ---- */
 async function renderResultsPanel() {
   const el = document.getElementById("resultsCard");
   let results;
@@ -680,44 +513,260 @@ async function renderResultsPanel() {
   }).join("");
 }
 
-document.getElementById("resetDemo").onclick = () => {
-  alert("For safety, clearing votes/registrations isn't done from the browser. Run the relevant SQL in the Supabase dashboard (see backend/README.md) if you need to reset test data.");
+/* ---- students: per-block summary cards + collapsible full roster ---- */
+let cachedRoster = [];
+async function renderBlockGrid() {
+  try {
+    const data = await api("/admin/students", { token: adminToken });
+    cachedRoster = data.students || [];
+  } catch (_err) {
+    cachedRoster = [];
+  }
+
+  const blocks = {};
+  cachedRoster.forEach((s) => {
+    const key = s.block || "No block";
+    if (!blocks[key]) blocks[key] = { total: 0, registered: 0, voted: 0 };
+    blocks[key].total++;
+    if (s.registered) blocks[key].registered++;
+    if (s.voted) blocks[key].voted++;
+  });
+
+  const grid = document.getElementById("blockGrid");
+  const keys = Object.keys(blocks).sort();
+  grid.innerHTML = keys.length
+    ? keys.map((key) => {
+        const b = blocks[key];
+        const votedPct = b.total ? Math.round((b.voted / b.total) * 100) : 0;
+        const genPct = b.total ? Math.round((b.registered / b.total) * 100) : 0;
+        return `
+          <div class="block-card">
+            <h4>${key}</h4>
+            <div class="block-metric">
+              <div class="block-metric-label"><span>Voted</span><span>${votedPct}%</span></div>
+              <div class="block-metric-track"><div class="block-metric-fill voted" style="width:${votedPct}%"></div></div>
+            </div>
+            <div class="block-metric">
+              <div class="block-metric-label"><span>Generated</span><span>${genPct}%</span></div>
+              <div class="block-metric-track"><div class="block-metric-fill generated" style="width:${genPct}%"></div></div>
+            </div>
+          </div>`;
+      }).join("")
+    : `<p class="panel-note">No students in the roster yet.</p>`;
+}
+
+async function renderRosterTable() {
+  if (!cachedRoster.length) {
+    try {
+      const data = await api("/admin/students", { token: adminToken });
+      cachedRoster = data.students || [];
+    } catch (_err) { cachedRoster = []; }
+  }
+  document.getElementById("rosterCount").textContent = cachedRoster.length;
+  const tbody = document.querySelector("#rosterTable tbody");
+  tbody.innerHTML = cachedRoster.length
+    ? cachedRoster.map((s) => `
+      <tr>
+        <td>${s.id_no}</td><td>${s.name}</td><td>${s.block || "&mdash;"}</td><td>${s.email || "&mdash;"}</td>
+        <td><button class="row-remove" data-remove-student="${s.id_no}">&times;</button></td>
+      </tr>`).join("")
+    : `<tr><td colspan="5" class="table-empty">No students yet.</td></tr>`;
+
+  tbody.querySelectorAll("[data-remove-student]").forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        await api(`/admin/students/${encodeURIComponent(btn.dataset.removeStudent)}`, { method: "DELETE", token: adminToken });
+        cachedRoster = [];
+        renderRosterTable(); renderBlockGrid(); renderStatRow();
+      } catch (err) { alert(err.error || "Couldn't remove that student."); }
+    };
+  });
+}
+
+/* Add Student modal (manual add + CSV import) */
+const addStudentOverlay = document.getElementById("addStudentOverlay");
+document.getElementById("openAddStudentModal").onclick = () => {
+  document.getElementById("rosterError").textContent = "";
+  document.getElementById("csvError").textContent = "";
+  addStudentOverlay.classList.add("show");
+};
+document.getElementById("closeAddStudentModal").onclick = () => addStudentOverlay.classList.remove("show");
+
+document.getElementById("studentModalTabOne").onclick = () => {
+  document.getElementById("studentModalTabOne").classList.add("active");
+  document.getElementById("studentModalTabCsv").classList.remove("active");
+  document.getElementById("studentModalOne").classList.remove("hidden");
+  document.getElementById("studentModalCsv").classList.add("hidden");
+};
+document.getElementById("studentModalTabCsv").onclick = () => {
+  document.getElementById("studentModalTabCsv").classList.add("active");
+  document.getElementById("studentModalTabOne").classList.remove("active");
+  document.getElementById("studentModalCsv").classList.remove("hidden");
+  document.getElementById("studentModalOne").classList.add("hidden");
 };
 
-/* ---- admin account management ---- */
-async function renderAdminTable() {
+document.getElementById("addStudentBtn").onclick = async () => {
+  const errorEl = document.getElementById("rosterError");
+  errorEl.textContent = "";
+  const id_no = document.getElementById("rosterId").value.trim();
+  const name = document.getElementById("rosterName").value.trim();
+  const block = document.getElementById("rosterBlock").value.trim();
+  if (!id_no || !name) { errorEl.textContent = "Student ID and name are required."; return; }
+  try {
+    await api("/admin/students", { method: "POST", token: adminToken, body: { id_no, name, block } });
+    document.getElementById("rosterId").value = "";
+    document.getElementById("rosterName").value = "";
+    document.getElementById("rosterBlock").value = "";
+    cachedRoster = [];
+    renderRosterTable(); renderBlockGrid(); renderStatRow();
+    addStudentOverlay.classList.remove("show");
+  } catch (err) { errorEl.textContent = err.error || "Couldn't add that student."; }
+};
+
+document.getElementById("importCsvBtn").onclick = async () => {
+  const errorEl = document.getElementById("csvError");
+  errorEl.textContent = "";
+  const fileInput = document.getElementById("csvFileInput");
+  const file = fileInput.files[0];
+  if (!file) { errorEl.textContent = "Choose a CSV file first."; return; }
+  const btn = document.getElementById("importCsvBtn");
+  btn.disabled = true;
+  try {
+    const data = await apiUpload("/admin/students/import", file, adminToken);
+    fileInput.value = "";
+    cachedRoster = [];
+    renderRosterTable(); renderStatRow(); renderBlockGrid();
+    addStudentOverlay.classList.remove("show");
+    alert(`Imported/updated ${data.count} student(s).`);
+  } catch (err) {
+    errorEl.textContent = err.error || "Import failed.";
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+/* ---- candidates: grouped list + Add Candidate modal ---- */
+async function renderCandidateList() {
+  const el = document.getElementById("candidateList");
+  let candidates;
+  try {
+    const data = await api("/admin/candidates", { token: adminToken });
+    candidates = data.candidates || [];
+  } catch (_err) {
+    el.innerHTML = `<p class="error-text">Couldn't load candidates.</p>`;
+    return;
+  }
+  if (!candidates.length) {
+    el.innerHTML = `<p class="panel-note">No candidates yet. Use "Add Candidates" to get started.</p>`;
+    return;
+  }
+  const byPosition = {};
+  candidates.forEach((c) => {
+    if (!byPosition[c.position]) byPosition[c.position] = [];
+    byPosition[c.position].push(c);
+  });
+  el.innerHTML = Object.entries(byPosition).map(([position, list]) => `
+    <div class="candidate-position-group">
+      <p class="candidate-position-title">${position}</p>
+      ${list.map((c) => `
+        <div class="candidate-list-row">
+          <div>
+            <div class="candidate-list-name">${c.name}</div>
+            ${c.slogan ? `<div class="candidate-list-slogan">${c.slogan}</div>` : ""}
+          </div>
+          <button class="row-remove" data-remove-cand="${c.id}">&times;</button>
+        </div>`).join("")}
+    </div>`).join("");
+
+  el.querySelectorAll("[data-remove-cand]").forEach((btn) => {
+    btn.onclick = async () => {
+      try {
+        await api(`/admin/candidates/${btn.dataset.removeCand}`, { method: "DELETE", token: adminToken });
+        renderCandidateList(); renderResultsPanel();
+      } catch (err) { alert(err.error || "Couldn't remove that candidate."); }
+    };
+  });
+}
+
+const addCandidateOverlay = document.getElementById("addCandidateOverlay");
+document.getElementById("openAddCandidateModal").onclick = () => addCandidateOverlay.classList.add("show");
+document.getElementById("closeAddCandidateModal").onclick = () => addCandidateOverlay.classList.remove("show");
+document.getElementById("addCandidateBtn").onclick = async () => {
+  const position = document.getElementById("candPosition").value.trim();
+  const name = document.getElementById("candName").value.trim();
+  const slogan = document.getElementById("candSlogan").value.trim();
+  if (!position || !name) return;
+  try {
+    await api("/admin/candidates", { method: "POST", token: adminToken, body: { position, name, slogan } });
+    document.getElementById("candPosition").value = "";
+    document.getElementById("candName").value = "";
+    document.getElementById("candSlogan").value = "";
+    renderCandidateList(); renderResultsPanel();
+    addCandidateOverlay.classList.remove("show");
+  } catch (err) { alert(err.error || "Couldn't add that candidate."); }
+};
+
+/* ---- site QR code (leads back to this site, not a per-student code) ---- */
+function renderSiteQr() {
+  const url = window.location.href.split("#")[0];
+  document.getElementById("siteQrUrl").textContent = url;
+  const box = document.getElementById("siteQrBox");
+  box.innerHTML = "";
+  if (typeof QRCode !== "undefined") {
+    new QRCode(box, { text: url, width: 170, height: 170, colorDark: "#0A0F22", colorLight: "#ffffff" });
+  }
+}
+document.getElementById("downloadQrBtn").onclick = () => {
+  const canvas = document.querySelector("#siteQrBox canvas");
+  if (!canvas) return;
+  const link = document.createElement("a");
+  link.download = "ccdi-election-qr.png";
+  link.href = canvas.toDataURL("image/png");
+  link.click();
+};
+
+/* ---- admin accounts: list + Add Admin modal (no public sign-up) ---- */
+async function renderAdminList() {
+  const el = document.getElementById("adminList");
   let admins;
   try {
     const data = await api("/admin/admins", { token: adminToken });
     admins = data.admins || [];
   } catch (_err) {
-    admins = [];
+    el.innerHTML = `<p class="error-text">Couldn't load admin accounts.</p>`;
+    return;
   }
-  document.getElementById("adminListHeading").textContent = `Admin accounts (${admins.length})`;
-  const tbody = document.querySelector("#adminTable tbody");
-  tbody.innerHTML = admins.length
+  el.innerHTML = admins.length
     ? admins.map((a) => {
         const isSelf = currentAdmin && a.id === currentAdmin.id;
         const canRemove = admins.length > 1 && !isSelf;
         return `
-          <tr>
-            <td>${a.name}${isSelf ? ' <span class="status-pill yes">You</span>' : ""}</td>
-            <td>${a.username}</td>
-            <td>${a.email}</td>
-            <td>${canRemove ? `<button class="row-remove" data-remove-admin="${a.id}">&times;</button>` : ""}</td>
-          </tr>`;
+          <div class="candidate-list-row">
+            <div>
+              <div class="candidate-list-name">${a.name}${isSelf ? ' <span class="status-pill yes">You</span>' : ""}</div>
+              <div class="candidate-list-slogan">${a.username} &middot; ${a.email}</div>
+            </div>
+            ${canRemove ? `<button class="row-remove" data-remove-admin="${a.id}">&times;</button>` : ""}
+          </div>`;
       }).join("")
-    : `<tr><td colspan="4" class="table-empty">No admin accounts yet.</td></tr>`;
+    : `<p class="panel-note">No admin accounts yet.</p>`;
 
-  tbody.querySelectorAll("[data-remove-admin]").forEach((btn) => {
+  el.querySelectorAll("[data-remove-admin]").forEach((btn) => {
     btn.onclick = async () => {
       try {
         await api(`/admin/admins/${btn.dataset.removeAdmin}`, { method: "DELETE", token: adminToken });
-        renderAdminTable();
+        renderAdminList();
       } catch (err) { alert(err.error || "Couldn't remove that admin."); }
     };
   });
 }
+
+const addAdminOverlay = document.getElementById("addAdminOverlay");
+document.getElementById("openAddAdminModal").onclick = () => {
+  document.getElementById("admError2").textContent = "";
+  addAdminOverlay.classList.add("show");
+};
+document.getElementById("closeAddAdminModal").onclick = () => addAdminOverlay.classList.remove("show");
 document.getElementById("addAdminBtn").onclick = async () => {
   const errorEl = document.getElementById("admError2");
   errorEl.textContent = "";
@@ -728,10 +777,15 @@ document.getElementById("addAdminBtn").onclick = async () => {
   try {
     await api("/admin/admins", { method: "POST", token: adminToken, body: { name, email, username, password } });
     ["admName", "admEmail2", "admUsername2", "admPassword2"].forEach((id) => { document.getElementById(id).value = ""; });
-    renderAdminTable();
+    renderAdminList();
+    addAdminOverlay.classList.remove("show");
   } catch (err) {
     errorEl.textContent = err.error || "Couldn't add that admin.";
   }
+};
+
+document.getElementById("resetDemo").onclick = () => {
+  alert("For safety, clearing votes/registrations isn't done from the browser. Run the relevant SQL in the Supabase dashboard (see backend/README.md) if you need to reset test data.");
 };
 
 /* ---------------- Boot ---------------- */
