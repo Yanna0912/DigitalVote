@@ -180,39 +180,35 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 }
 
 /* Make .panel stretch inside .card */
-.panel {
-  position: relative;
-  padding: 24px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+.stage{
+  flex:1;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:26px clamp(16px,5vw,56px) 48px;
 }
 
-/* Ensure .panel-content expands vertically */
-.panel-content {
-  animation: fadeIn .35s ease;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  flex: 1;
+.card{
+  position:relative;
+  width:440px; max-width:100%;
+  background:linear-gradient(180deg, var(--panel-2), var(--panel));
+  border:1px solid var(--line);
+  border-radius:var(--radius-card);
+  box-shadow:var(--shadow);
+  overflow:hidden;
 }
 
-/* New: Scrollable area for the ballot candidates */
-.ballot-container {
-  flex: 1;
-  overflow-y: auto;
-  margin-bottom: 16px;
-  padding-right: 4px; /* Space for scrollbar */
+.panel{
+  position:relative;
+  padding:36px 34px;
 }
+.panel-content{animation: fadeIn .35s ease;}
+@keyframes fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
 
-/* Optional custom scrollbar for dark theme */
-.ballot-container::-webkit-scrollbar {
-  width: 6px;
+.eyebrow{
+  font-size:12px; font-weight:600; color:var(--muted);
+  margin:0 0 6px; letter-spacing:.3px;
 }
-.ballot-container::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
-  border-radius: 4px;
-}
+.step-title{font-size:24px; font-weight:700; color:var(--ink); margin-bottom:22px;}
+
 /* login/register tabs */
 .mode-tabs{display:flex; gap:6px; background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:12px; padding:4px; margin-bottom:22px;}
 .mode-tab{
@@ -242,14 +238,6 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .field input::placeholder, .field-dark input::placeholder{color:#5B6389;}
 .field input:focus, .field-dark input:focus{border-color:var(--blue); background:rgba(59,107,245,.06);}
 
-.field label.show-password-toggle {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  cursor: pointer;
-  margin-top: 6px;
-  width: fit-content; /* Para hindi sakupin ang buong width */
-}
 .btn{
   width:100%;
   border:none; border-radius:12px;
@@ -259,7 +247,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   transition:transform .12s ease, box-shadow .12s ease, opacity .15s;
 }
 .btn-primary, .btn-gradient{
-  background:linear-gradient(var(--blue));
+  background:linear-gradient(100deg, var(--blue), var(--teal));
   color:#fff;
   box-shadow:0 14px 26px -10px rgba(59,107,245,.55);
 }
@@ -291,18 +279,22 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .candidate-row span{font-size:13.5px;}
 .candidate-row:has(input:checked){border-color:var(--blue); background:rgba(59,107,245,.10);}
 
-/* ---------- takeover (confirmation / already voted / waiting) ---------- */
-.takeover{
-  position:absolute; inset:0;
-  display:none; align-items:center; justify-content:center; text-align:center;
-  padding:38px; z-index:3;
+/* ---------- full-screen voting experience ---------- */
+/* Used for: waiting-for-voting-to-open, the ballot itself, and the */
+/* confirmation / already-voted screens that follow a successful login. */
+.vote-fullscreen{
+  position:fixed; inset:0; z-index:40;
+  display:none; align-items:center; justify-content:center;
+  overflow-y:auto; padding:48px 20px;
   color:#fff;
 }
-.takeover.show{display:flex;}
-.takeover.confirm{background:linear-gradient(160deg, #1B8F63, var(--success) 60%, #0D5C3E);}
-.takeover.blocked{background:linear-gradient(160deg, #C23A50, var(--red) 60%, #7C1A2A);}
-.takeover.waiting{background:linear-gradient(160deg, #1E2A55, var(--indigo) 60%, #131A3A);}
-.takeover-inner{max-width:340px;}
+.vote-fullscreen.show{display:flex;}
+.vote-fullscreen.confirm{background:linear-gradient(160deg, #1B8F63, var(--success) 60%, #0D5C3E);}
+.vote-fullscreen.blocked{background:linear-gradient(160deg, #C23A50, var(--red) 60%, #7C1A2A);}
+.vote-fullscreen.waiting{background:linear-gradient(160deg, #1E2A55, var(--indigo) 60%, #131A3A);}
+.vote-fullscreen.ballot{background:var(--bg); align-items:flex-start;}
+
+.takeover-inner{max-width:340px; text-align:center;}
 .status-badge{
   width:70px; height:70px; border-radius:50%;
   background:rgba(255,255,255,.14);
@@ -310,16 +302,18 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   margin:0 auto 20px;
   font-size:32px;
 }
-.takeover h2{font-size:23px; margin-bottom:10px;}
-.takeover p{font-size:14px; line-height:1.6; color:rgba(255,255,255,.88); margin:0 0 6px;}
-.takeover .stamp{
+.vote-fullscreen h2{font-size:23px; margin-bottom:10px;}
+.vote-fullscreen p{font-size:14px; line-height:1.6; color:rgba(255,255,255,.88); margin:0 0 6px;}
+.vote-fullscreen .stamp{
   margin-top:20px; display:inline-flex; gap:8px; align-items:center;
   background:rgba(255,255,255,.14); border-radius:999px; padding:9px 16px; font-size:12.5px;
 }
-.takeover .btn-secondary{
+.vote-fullscreen .btn-secondary{
   background:rgba(255,255,255,.08); color:#fff; border-color:rgba(255,255,255,.4); margin-top:24px;
 }
-.takeover .btn-secondary:hover{border-color:#fff;}
+.vote-fullscreen .btn-secondary:hover{border-color:#fff;}
+.waiting-actions{display:flex; gap:10px; margin-top:24px; justify-content:center; flex-wrap:wrap;}
+.waiting-actions .btn-secondary{margin-top:0; width:auto; padding:14px 22px;}
 .spinner{
   width:34px; height:34px; border-radius:50%;
   border:3px solid rgba(255,255,255,.25); border-top-color:#fff;
@@ -327,8 +321,16 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 }
 @keyframes spin{to{transform:rotate(360deg);}}
 
+/* the ballot itself: wide, occupies the whole screen, not a small card */
+.ballot-inner{width:100%; max-width:920px; margin:0 auto; color:var(--ink);}
+.ballot-header{margin-bottom:28px;}
+.ballot-header .eyebrow{color:var(--teal);}
+.ballot-header h2{font-size:clamp(22px,3vw,30px); font-family:'Sora',sans-serif; color:var(--ink);}
+.ballot-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(300px,1fr)); gap:22px; margin-top:6px;}
+.ballot-submit-row{margin-top:32px; max-width:340px;}
+
 /* ---------- hint ---------- */
-.hint{margin-top:5px; font: size 23px; color:var(--panel); text-align:left; max-width:480px;}
+.hint{margin-top:18px; font-size:12px; color:var(--muted); text-align:center; max-width:480px;}
 
 /* ---------- overlays / modals ---------- */
 .overlay{
@@ -376,23 +378,46 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 }
 .icon-btn:hover{border-color:var(--red); color:var(--red);}
 
-.admin-signup-link{
-  margin-top:14px; font-size:12.5px; color:var(--muted); text-align:center;
-}
-.admin-signup-link a{color:var(--blue-light); font-weight:600; text-decoration:none;}
-.admin-signup-link a:hover{text-decoration:underline;}
+/* ---------- admin dashboard (sidebar layout) ---------- */
+.admin-section{position:relative; z-index:1; min-height:100vh;}
+.admin-shell{display:flex; min-height:100vh;}
 
-/* ---------- admin dashboard ---------- */
-.admin-section{padding:26px clamp(16px,4vw,48px) 60px; position:relative; z-index:1;}
-.admin-topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:26px;}
-.admin-topbar-left{display:flex; align-items:center; gap:12px;}
-.admin-logo{width:34px; height:auto; background:#fff; border-radius:50%; padding:4px;}
-.admin-title{margin:0; font-family:'Sora',sans-serif; font-weight:800; font-size:17px; color:var(--ink);}
-.admin-sub{margin:2px 0 0; font-size:11.5px; color:var(--muted);}
+.admin-sidebar{
+  width:230px; flex-shrink:0;
+  background:linear-gradient(180deg, var(--panel-2), var(--panel));
+  border-right:1px solid var(--line);
+  display:flex; flex-direction:column;
+  padding:24px 18px;
+}
+.admin-brand{display:flex; align-items:center; gap:10px; margin-bottom:30px;}
+.admin-logo{width:32px; height:auto; background:#fff; border-radius:50%; padding:4px; flex-shrink:0;}
+.admin-title{margin:0; font-family:'Sora',sans-serif; font-weight:800; font-size:15px; color:var(--ink);}
+.admin-sub{margin:1px 0 0; font-size:10.5px; color:var(--muted);}
+
+.sidebar-nav{display:flex; flex-direction:column; gap:4px;}
+.sidebar-link{
+  text-align:left; border:none; background:transparent; color:var(--muted);
+  font-family:'Sora',sans-serif; font-weight:600; font-size:13.5px;
+  padding:11px 14px; border-radius:10px; cursor:pointer;
+  transition:background .15s, color .15s;
+}
+.sidebar-link:hover{background:rgba(255,255,255,.05); color:var(--ink);}
+.sidebar-link.active{background:linear-gradient(135deg, var(--blue), var(--indigo)); color:#fff;}
+
+.sidebar-admin-group{margin-top:18px; padding-top:18px; border-top:1px solid var(--line);}
+
+.sidebar-footer{margin-top:auto; padding-top:20px; border-top:1px solid var(--line);}
+.sidebar-who{font-size:10.5px; color:var(--muted); margin:0 0 10px; line-height:1.4; word-break:break-word;}
+
+.admin-main{flex:1; min-width:0; padding:28px clamp(16px,3vw,40px) 60px;}
+.panel-header-row{display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px;}
+.panel-header-row h2{font-family:'Sora',sans-serif; font-size:20px; color:var(--ink);}
+.btn-small{width:auto; padding:10px 18px; font-size:12.5px; margin-top:0;}
+
 .btn-logout{
   border:1px solid var(--line); background:rgba(255,255,255,.03); color:var(--ink);
   font-family:'Inter',sans-serif; font-weight:600; font-size:12.5px;
-  padding:9px 16px; border-radius:999px; cursor:pointer;
+  padding:9px 16px; border-radius:999px; cursor:pointer; width:100%;
 }
 .btn-logout:hover{border-color:var(--red); color:var(--red);}
 
@@ -413,14 +438,6 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .status-closed .status-dot{background:var(--red); box-shadow:0 0 10px var(--red);}
 .status-toggle-label{font-size:11.5px; color:var(--muted); margin-top:8px;}
 
-.admin-tabs{display:flex; gap:8px; margin-bottom:22px; flex-wrap:wrap;}
-.tab-pill{
-  border:1px solid var(--line); background:rgba(255,255,255,.03); color:var(--muted);
-  font-family:'Sora',sans-serif; font-weight:700; font-size:12.5px;
-  padding:10px 18px; border-radius:999px; cursor:pointer; transition:background .15s,color .15s;
-}
-.tab-pill.active{background:linear-gradient(135deg, var(--blue), var(--indigo)); color:#fff; border-color:transparent;}
-
 .glass-card{
   background:linear-gradient(180deg, var(--panel-2), var(--panel));
   border:1px solid var(--line); border-radius:var(--radius-card);
@@ -429,6 +446,50 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .panel-heading{font-size:17px; color:var(--ink); margin-bottom:16px;}
 .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
 @media (max-width:520px){.form-grid{grid-template-columns:1fr;}}
+
+/* per-block student summary cards */
+.block-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:16px; margin-bottom:22px;}
+.block-card{
+  background:linear-gradient(180deg, var(--panel-2), var(--panel));
+  border:1px solid var(--line); border-radius:16px; padding:18px;
+}
+.block-card h4{margin:0 0 14px; font-size:15px; color:var(--ink); font-family:'Sora',sans-serif;}
+.block-metric{margin-bottom:12px;}
+.block-metric:last-child{margin-bottom:0;}
+.block-metric-label{display:flex; justify-content:space-between; font-size:11.5px; color:var(--muted); margin-bottom:5px;}
+.block-metric-track{height:8px; border-radius:99px; background:rgba(255,255,255,.06); overflow:hidden;}
+.block-metric-fill{height:100%; border-radius:99px;}
+.block-metric-fill.voted{background:linear-gradient(90deg, var(--teal), var(--success));}
+.block-metric-fill.generated{background:linear-gradient(90deg, var(--blue-light), var(--blue));}
+
+/* collapsible full roster table */
+.roster-details{
+  background:linear-gradient(180deg, var(--panel-2), var(--panel));
+  border:1px solid var(--line); border-radius:var(--radius-card);
+  padding:18px 22px;
+}
+.roster-details summary{
+  cursor:pointer; font-family:'Sora',sans-serif; font-weight:700; font-size:14px; color:var(--ink);
+  list-style:none;
+}
+.roster-details summary::-webkit-details-marker{display:none;}
+.roster-details summary::before{content:'\25B8  '; color:var(--muted);}
+.roster-details[open] summary::before{content:'\25BE  ';}
+.roster-details table{margin-top:16px;}
+
+/* candidates grouped by position, simple list rather than a table */
+.candidate-position-group{margin-bottom:22px;}
+.candidate-position-title{
+  font-family:'Sora',sans-serif; font-weight:700; font-size:13px; color:var(--teal);
+  margin-bottom:10px; text-transform:uppercase; letter-spacing:.6px;
+}
+.candidate-list-row{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:13px 16px; border:1px solid var(--line); border-radius:12px;
+  background:rgba(255,255,255,.02); margin-bottom:8px;
+}
+.candidate-list-name{font-weight:600; color:var(--ink); font-size:13.5px;}
+.candidate-list-slogan{font-size:12px; color:var(--muted); margin-top:2px;}
 
 .dark-table{width:100%; border-collapse:collapse; font-size:13px;}
 .dark-table th{
@@ -478,4 +539,21 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 /* ---------- responsive ---------- */
 @media (max-width:520px){
   .panel{padding:28px 22px;}
+}
+@media (max-width:820px){
+  .admin-shell{flex-direction:column;}
+  .admin-sidebar{
+    width:100%; flex-direction:row; align-items:center; flex-wrap:wrap; gap:14px;
+    padding:14px 16px;
+  }
+  .admin-brand{margin-bottom:0; margin-right:auto;}
+  .sidebar-nav{flex-direction:row; flex-wrap:wrap;}
+  .sidebar-admin-group{margin:0; padding:0; border:none;}
+  .sidebar-footer{margin-top:0; padding-top:0; border-top:none; display:flex; align-items:center; gap:10px; width:auto;}
+  .sidebar-who{display:none;}
+  .btn-logout{width:auto;}
+}
+@media (max-width:600px){
+  .vote-fullscreen{padding:32px 16px;}
+  .ballot-grid{grid-template-columns:1fr;}
 }

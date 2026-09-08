@@ -52,154 +52,95 @@
   </div>
 </div>
 
-  <!-- ===================== ADMIN DASHBOARD (full page, role-redirected) ===================== -->
+   <!-- ===================== FULL-SCREEN VOTING EXPERIENCE ===================== -->
+  <!-- Used for: waiting-for-voting-to-open, the ballot itself, and the -->
+  <!-- confirmation / already-voted screens that follow it. -->
+  <div id="voteFullscreen" class="vote-fullscreen"></div>
+
+  <!-- ===================== ADMIN DASHBOARD (role-redirected) ===================== -->
   <div id="adminSection" class="admin-section hidden">
-    <div class="admin-topbar">
-      <div class="admin-topbar-left">
-        <img src="assets/logo.png" alt="CCDI logo" class="admin-logo">
-        <div>
-          <p class="admin-title">Election Portal</p>
-          <p class="admin-sub" id="adminWho">CCDI Sorsogon City &middot; Supreme Student Government</p>
-        </div>
-      </div>
-      <button class="btn-logout" id="adminLogout">Log out</button>
-    </div>
+    <div class="admin-shell">
 
-    <div class="stat-row" id="statRow"></div>
-
-    <div class="admin-tabs" id="adminTabs">
-      <button class="tab-pill active" data-admintab="candidates">Candidates</button>
-      <button class="tab-pill" data-admintab="students">Students</button>
-      <button class="tab-pill" data-admintab="qrcodes">QR Codes</button>
-      <button class="tab-pill" data-admintab="monitoring">Monitoring</button>
-      <button class="tab-pill" data-admintab="results">Results</button>
-      <button class="tab-pill" data-admintab="admins">Admins</button>
-    </div>
-
-    <div class="admin-panel" id="adminPanelCandidates">
-      <div class="glass-card">
-        <h3 class="panel-heading">Add candidate</h3>
-        <div class="form-grid">
-          <div class="field-dark">
-            <label>Position</label>
-            <input type="text" id="candPosition" placeholder="e.g. President">
-          </div>
-          <div class="field-dark">
-            <label>Candidate name</label>
-            <input type="text" id="candName" placeholder="Juan Dela Cruz">
+      <aside class="admin-sidebar">
+        <div class="admin-brand">
+          <img src="assets/logo.png" alt="CCDI logo" class="admin-logo">
+          <div>
+            <p class="admin-title">CCDI</p>
+            <p class="admin-sub">Sorsogon City</p>
           </div>
         </div>
-        <div class="field-dark">
-          <label>Slogan (optional)</label>
-          <input type="text" id="candSlogan" placeholder="For the students!">
+
+        <nav class="sidebar-nav">
+          <button class="sidebar-link active" data-admintab="dashboard">Dashboard</button>
+          <button class="sidebar-link" data-admintab="students">Students</button>
+          <button class="sidebar-link" data-admintab="candidates">Candidates</button>
+          <button class="sidebar-link" data-admintab="qrcodes">QR Code</button>
+        </nav>
+
+        <div class="sidebar-admin-group">
+          <button class="sidebar-link" data-admintab="admins">Admin</button>
         </div>
-        <button class="btn-gradient" id="addCandidateBtn">Add candidate</button>
-      </div>
 
-      <div class="glass-card">
-        <h3 class="panel-heading" id="candidateListHeading">Candidate list (0)</h3>
-        <table class="dark-table" id="candidateTable">
-          <thead><tr><th>Position</th><th>Name</th><th>Slogan</th><th></th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="admin-panel hidden" id="adminPanelStudents">
-      <div class="glass-card">
-        <h3 class="panel-heading">Import roster from CSV</h3>
-        <p class="panel-note">Columns: <strong>id_no, name, block</strong>. Existing IDs are updated in place &mdash; email and voting login are never touched by an import.</p>
-        <input type="file" id="csvFileInput" accept=".csv,text/csv" class="file-input">
-        <button class="btn-gradient" id="importCsvBtn" style="max-width:220px;">Import CSV</button>
-        <p class="error-text" id="csvError"></p>
-      </div>
-      <div class="glass-card">
-        <h3 class="panel-heading">Add one student</h3>
-        <div class="form-grid">
-          <div class="field-dark">
-            <label>Student ID</label>
-            <input type="text" id="rosterId" placeholder="e.g. 24-0001">
-          </div>
-          <div class="field-dark">
-            <label>Full name</label>
-            <input type="text" id="rosterName" placeholder="Last, First">
-          </div>
+        <div class="sidebar-footer">
+          <p class="sidebar-who" id="adminWho"></p>
+          <button class="btn-logout" id="adminLogout">Log out</button>
         </div>
-        <div class="field-dark">
-          <label>Block</label>
-          <input type="text" id="rosterBlock" placeholder="e.g. BSIT-3A">
-        </div>
-        <p class="error-text" id="rosterError"></p>
-        <button class="btn-gradient" id="addStudentBtn">Add student</button>
-      </div>
-      <div class="glass-card">
-        <h3 class="panel-heading" id="rosterListHeading">Roster (0)</h3>
-        <table class="dark-table" id="rosterTable">
-          <thead><tr><th>Student ID</th><th>Name</th><th>Block</th><th>Email</th><th></th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
+      </aside>
 
-    <div class="admin-panel hidden" id="adminPanelQrcodes">
-      <div class="glass-card qr-card">
-        <h3 class="panel-heading">Site QR code</h3>
-        <p class="panel-note">Post this physically around campus or share it online. Scanning it simply opens this voting site &mdash; students still register or log in on the page itself.</p>
-        <div class="qr-display" id="siteQrBox"></div>
-        <p class="qr-url" id="siteQrUrl"></p>
-        <button class="btn-gradient" id="downloadQrBtn" style="max-width:220px;">Download QR</button>
-      </div>
-    </div>
+      <main class="admin-main">
 
-    <div class="admin-panel hidden" id="adminPanelMonitoring">
-      <div class="glass-card">
-        <h3 class="panel-heading">Voter monitoring</h3>
-        <p class="panel-note">Updates automatically as students register and vote.</p>
-        <table class="dark-table" id="monitorTable">
-          <thead><tr><th>Student ID</th><th>Name</th><th>Voting login</th><th>Vote status</th><th>Timestamp</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="admin-panel hidden" id="adminPanelResults">
-      <div class="glass-card" id="resultsCard"></div>
-    </div>
-
-    <div class="admin-panel hidden" id="adminPanelAdmins">
-      <div class="glass-card">
-        <h3 class="panel-heading">Add an admin account</h3>
-        <div class="form-grid">
-          <div class="field-dark">
-            <label>Full name</label>
-            <input type="text" id="admName" placeholder="Full name">
+        <section class="admin-panel" id="adminPanelDashboard">
+          <div class="panel-header-row">
+            <h2>Dashboard</h2>
           </div>
-          <div class="field-dark">
-            <label>Gmail address</label>
-            <input type="email" id="admEmail2" placeholder="name@gmail.com">
-          </div>
-          <div class="field-dark">
-            <label>Username</label>
-            <input type="text" id="admUsername2" placeholder="Username">
-          </div>
-          <div class="field-dark">
-            <label>Password</label>
-            <input type="password" id="admPassword2" placeholder="Password">
-          </div>
-        </div>
-        <p class="error-text" id="admError2"></p>
-        <button class="btn-gradient" id="addAdminBtn">Add admin</button>
-      </div>
-      <div class="glass-card">
-        <h3 class="panel-heading" id="adminListHeading">Admin accounts (0)</h3>
-        <table class="dark-table" id="adminTable">
-          <thead><tr><th>Name</th><th>Username</th><th>Gmail</th><th></th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
+          <div class="stat-row" id="statRow"></div>
+          <div class="glass-card" id="resultsCard"></div>
+        </section>
 
-    <button class="danger-link" id="resetDemo">Reset demo data</button>
+        <section class="admin-panel hidden" id="adminPanelStudents">
+          <div class="panel-header-row">
+            <h2>Students</h2>
+            <button class="btn-gradient btn-small" id="openAddStudentModal">Add Students</button>
+          </div>
+          <div class="block-grid" id="blockGrid"></div>
+          <details class="roster-details">
+            <summary>Full roster (<span id="rosterCount">0</span>)</summary>
+            <table class="dark-table" id="rosterTable">
+              <thead><tr><th>Student ID</th><th>Name</th><th>Block</th><th>Email</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </details>
+        </section>
+
+        <section class="admin-panel hidden" id="adminPanelCandidates">
+          <div class="panel-header-row">
+            <h2>Candidates</h2>
+            <button class="btn-gradient btn-small" id="openAddCandidateModal">Add Candidates</button>
+          </div>
+          <div id="candidateList"></div>
+        </section>
+
+        <section class="admin-panel hidden" id="adminPanelQrcodes">
+          <div class="panel-header-row"><h2>QR Code</h2></div>
+          <div class="glass-card qr-card">
+            <p class="panel-note">Post this physically around campus or share it online. Scanning it simply opens this voting site &mdash; students still register or log in on the page itself.</p>
+            <div class="qr-display" id="siteQrBox"></div>
+            <p class="qr-url" id="siteQrUrl"></p>
+            <button class="btn-gradient" id="downloadQrBtn" style="max-width:220px;">Download QR</button>
+          </div>
+        </section>
+
+        <section class="admin-panel hidden" id="adminPanelAdmins">
+          <div class="panel-header-row">
+            <h2>Admin accounts</h2>
+            <button class="btn-gradient btn-small" id="openAddAdminModal">Add Admin</button>
+          </div>
+          <div id="adminList"></div>
+        </section>
+
+        <button class="danger-link" id="resetDemo">Reset demo data</button>
+      </main>
+    </div>
   </div>
 
 </div>
@@ -243,6 +184,93 @@
     <button class="btn-gradient" id="otpSubmit">Verify &amp; continue</button>
     <p class="cred-note" id="otpResend">Didn't get it? <a href="#" id="otpResendLink">Resend code</a></p>
     <p class="cred-note" id="otpDemoNote" style="opacity:.8;"></p>
+  </div>
+</div>
+
+<!-- Add Student modal (manual add + CSV import, same popup pattern as Candidates/Admin) -->
+<div class="overlay" id="addStudentOverlay">
+  <div class="cred-modal cred-modal-lg">
+    <button class="icon-btn" id="closeAddStudentModal" aria-label="Close">&times;</button>
+    <p class="cred-eyebrow">Students</p>
+    <h3 class="cred-name">Add students</h3>
+
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="studentModalTabOne">Add one</button>
+      <button class="mode-tab" id="studentModalTabCsv">Import CSV</button>
+    </div>
+
+    <div id="studentModalOne">
+      <div class="field-dark">
+        <label>Student ID</label>
+        <input type="text" id="rosterId" placeholder="e.g. 24-0001">
+      </div>
+      <div class="field-dark">
+        <label>Full name</label>
+        <input type="text" id="rosterName" placeholder="Last, First">
+      </div>
+      <div class="field-dark">
+        <label>Block</label>
+        <input type="text" id="rosterBlock" placeholder="e.g. BSIT-3A">
+      </div>
+      <p class="error-text" id="rosterError"></p>
+      <button class="btn-gradient" id="addStudentBtn">Add student</button>
+    </div>
+
+    <div id="studentModalCsv" class="hidden">
+      <p class="panel-note">Columns: <strong>id_no, name, block</strong>. Existing IDs are updated in place &mdash; email and voting login are never touched by an import.</p>
+      <input type="file" id="csvFileInput" accept=".csv,text/csv" class="file-input">
+      <button class="btn-gradient" id="importCsvBtn">Import CSV</button>
+      <p class="error-text" id="csvError"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Add Candidate modal -->
+<div class="overlay" id="addCandidateOverlay">
+  <div class="cred-modal cred-modal-lg">
+    <button class="icon-btn" id="closeAddCandidateModal" aria-label="Close">&times;</button>
+    <p class="cred-eyebrow">Candidates</p>
+    <h3 class="cred-name">Add a candidate</h3>
+    <div class="field-dark">
+      <label>Position</label>
+      <input type="text" id="candPosition" placeholder="e.g. President">
+    </div>
+    <div class="field-dark">
+      <label>Candidate name</label>
+      <input type="text" id="candName" placeholder="Juan Dela Cruz">
+    </div>
+    <div class="field-dark">
+      <label>Slogan (optional)</label>
+      <input type="text" id="candSlogan" placeholder="For the students!">
+    </div>
+    <button class="btn-gradient" id="addCandidateBtn">Add candidate</button>
+  </div>
+</div>
+
+<!-- Add Admin modal -->
+<div class="overlay" id="addAdminOverlay">
+  <div class="cred-modal cred-modal-lg">
+    <button class="icon-btn" id="closeAddAdminModal" aria-label="Close">&times;</button>
+    <p class="cred-eyebrow">Admin accounts</p>
+    <h3 class="cred-name">Add an admin</h3>
+    <div class="field-dark">
+      <label>Full name</label>
+      <input type="text" id="admName" placeholder="Full name">
+    </div>
+    <div class="field-dark">
+      <label>Gmail address</label>
+      <input type="email" id="admEmail2" placeholder="name@gmail.com">
+    </div>
+    <div class="field-dark">
+      <label>Username</label>
+      <input type="text" id="admUsername2" placeholder="Username">
+    </div>
+    <div class="field-dark">
+      <label>Password</label>
+      <input type="password" id="admPassword2" placeholder="Password">
+    </div>
+    <p class="error-text" id="admError2"></p>
+    <button class="btn-gradient" id="addAdminBtn">Add admin</button>
   </div>
 </div>
 
