@@ -498,7 +498,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .sidebar-footer{margin-top:auto; padding-top:20px; border-top:1px solid var(--line);}
 .sidebar-who{font-size:10.5px; color:var(--muted); margin:0 0 10px; line-height:1.4; word-break:break-word;}
 
-.admin-main{flex:1; min-width:0; padding:28px clamp(16px,3vw,40px) 60px;}
+.admin-main{flex:1; min-width:0; padding:16px clamp(16px,3vw,40px) 60px;}
 .panel-header-row{display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px;}
 .panel-header-row h2{font-family:'Sora',sans-serif; font-size:20px; color:var(--ink);}
 .btn-small{width:auto; padding:10px 18px; font-size:12.5px; margin-top:0;}
@@ -588,19 +588,19 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .dark-table td{padding:10px; border-bottom:1px solid var(--line); color:var(--ink);}
 .dark-table tr:last-child td{border-bottom:none;}
 .table-empty{color:var(--muted); font-style:italic;}
-.row-remove{border:none; background:rgba(240,71,92,.12); color:var(--red); width:24px; height:24px; border-radius:50%; font-size:13px; cursor:pointer;}
-
 .status-pill{
   display:inline-block; padding:3px 10px; border-radius:999px; font-size:10.5px; font-weight:700; white-space:nowrap;
 }
 .status-pill.yes{background:rgba(34,199,126,.14); color:var(--success);}
 .status-pill.no{background:rgba(240,71,92,.14); color:var(--red);}
 
-.results-row{margin-bottom:18px;}
-.results-row h4{margin:0 0 8px; font-size:14px; color:var(--ink);}
-.results-bar-track{background:rgba(255,255,255,.05); border-radius:8px; height:20px; overflow:hidden; margin-bottom:6px;}
-.results-bar-fill{height:100%; background:linear-gradient(90deg, var(--blue), var(--teal));}
-.results-bar-label{display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink);}
+.results-row{margin-bottom:24px;}
+.results-position{text-align:center; margin:0 0 14px; font-size:21px; color:var(--ink);}
+.result-candidate{padding:12px 0 10px; border-top:1px solid var(--line);}
+.result-candidate-main{display:flex; align-items:center; justify-content:space-between; gap:16px;}
+.result-candidate-name{font-size:18px; font-weight:800; color:var(--ink);}
+.result-candidate-votes{font-size:13px; color:var(--teal); white-space:nowrap;}
+.result-candidate-percent{margin-top:6px; font-size:12px; color:var(--muted); text-align:right;}
 
 .qr-card{text-align:center; max-width:360px;}
 .qr-display{

@@ -483,6 +483,34 @@ function resetToStart() {
   renderEntryStep("register");
 }
 
+async function restoreSession() {
+  if (adminToken) {
+    try {
+      const data = await api("/admin/me", { token: adminToken });
+      currentAdmin = data.admin;
+      openAdminDashboard(data.admin);
+      return;
+    } catch (_err) {
+      clearAdminToken();
+      currentAdmin = null;
+    }
+  }
+
+  if (studentToken) {
+    try {
+      const data = await api("/me", { token: studentToken });
+      currentStudent = data.student;
+      proceedAfterAuth(data.student, data.votingOpen);
+      return;
+    } catch (_err) {
+      clearStudentToken();
+      currentStudent = null;
+    }
+  }
+
+  renderEntryStep("login");
+}
+
 /* ---------------- Admin OTP verification ---------------- */
 function startAdminOtp(data) {
   document.getElementById("otpTarget").innerHTML = `We sent a 6-digit verification code to <strong>${data.maskedEmail}</strong>.`;
@@ -603,13 +631,18 @@ async function renderResultsPanel() {
     return;
   }
   el.innerHTML = `<h3 class="panel-heading">Live results</h3>` + results.map((race) => {
-    const max = Math.max(1, ...race.candidates.map((c) => c.votes));
+    const totalVotes = race.candidates.reduce((sum, candidate) => sum + candidate.votes, 0);
     return `
       <div class="results-row">
-        <h4>${race.position}</h4>
+        <h4 class="results-position">${race.position}</h4>
         ${race.candidates.map((c) => `
-          <div class="results-bar-track"><div class="results-bar-fill" style="width:${(c.votes / max) * 100}%"></div></div>
-          <div class="results-bar-label"><span>${c.name}</span><span>${c.votes} vote${c.votes === 1 ? "" : "s"}</span></div>
+          <div class="result-candidate">
+            <div class="result-candidate-main">
+              <span class="result-candidate-name">${c.name}</span>
+              <strong class="result-candidate-votes">${c.votes} vote${c.votes === 1 ? "" : "s"}</strong>
+            </div>
+            <div class="result-candidate-percent">${totalVotes ? Math.round((c.votes / totalVotes) * 100) : 0}%</div>
+          </div>
         `).join("")}
       </div>`;
   }).join("");
@@ -670,19 +703,8 @@ async function renderRosterTable() {
     ? cachedRoster.map((s) => `
       <tr>
         <td>${s.id_no}</td><td>${s.name}</td><td>${s.block || "&mdash;"}</td><td>${s.email || "&mdash;"}</td>
-        <td><button class="row-remove" data-remove-student="${s.id_no}">&times;</button></td>
       </tr>`).join("")
-    : `<tr><td colspan="5" class="table-empty">No students yet.</td></tr>`;
-
-  tbody.querySelectorAll("[data-remove-student]").forEach((btn) => {
-    btn.onclick = async () => {
-      try {
-        await api(`/admin/students/${encodeURIComponent(btn.dataset.removeStudent)}`, { method: "DELETE", token: adminToken });
-        cachedRoster = [];
-        renderRosterTable(); renderBlockGrid(); renderStatRow();
-      } catch (err) { alert(err.error || "Couldn't remove that student."); }
-    };
-  });
+    : `<tr><td colspan="4" class="table-empty">No students yet.</td></tr>`;
 }
 
 async function renderPendingRegistrations() {
@@ -834,18 +856,8 @@ async function renderCandidateList() {
             <div class="candidate-list-name">${c.name}</div>
             ${c.slogan ? `<div class="candidate-list-slogan">${c.slogan}</div>` : ""}
           </div>
-          <button class="row-remove" data-remove-cand="${c.id}">&times;</button>
         </div>`).join("")}
     </div>`).join("");
-
-  el.querySelectorAll("[data-remove-cand]").forEach((btn) => {
-    btn.onclick = async () => {
-      try {
-        await api(`/admin/candidates/${btn.dataset.removeCand}`, { method: "DELETE", token: adminToken });
-        renderCandidateList(); renderResultsPanel();
-      } catch (err) { alert(err.error || "Couldn't remove that candidate."); }
-    };
-  });
 }
 
 const addCandidateOverlay = document.getElementById("addCandidateOverlay");
@@ -899,26 +911,16 @@ async function renderAdminList() {
   el.innerHTML = admins.length
     ? admins.map((a) => {
         const isSelf = currentAdmin && a.id === currentAdmin.id;
-        const canRemove = admins.length > 1 && !isSelf;
         return `
           <div class="candidate-list-row">
             <div>
               <div class="candidate-list-name">${a.name}${isSelf ? ' <span class="status-pill yes">You</span>' : ""}</div>
               <div class="candidate-list-slogan">${a.username} &middot; ${a.email}</div>
             </div>
-            ${canRemove ? `<button class="row-remove" data-remove-admin="${a.id}">&times;</button>` : ""}
           </div>`;
       }).join("")
     : `<p class="panel-note">No admin accounts yet.</p>`;
 
-  el.querySelectorAll("[data-remove-admin]").forEach((btn) => {
-    btn.onclick = async () => {
-      try {
-        await api(`/admin/admins/${btn.dataset.removeAdmin}`, { method: "DELETE", token: adminToken });
-        renderAdminList();
-      } catch (err) { alert(err.error || "Couldn't remove that admin."); }
-    };
-  });
 }
 
 const addAdminOverlay = document.getElementById("addAdminOverlay");
@@ -944,9 +946,5 @@ document.getElementById("addAdminBtn").onclick = async () => {
   }
 };
 
-document.getElementById("resetDemo").onclick = () => {
-  alert("For safety, clearing votes/registrations isn't done from the browser. Run the relevant SQL in the Supabase dashboard (see backend/README.md) if you need to reset test data.");
-};
-
 /* ---------------- Boot ---------------- */
-renderEntryStep("login");
+restoreSession();

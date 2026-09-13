@@ -12,6 +12,16 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 *
 
 router.use(requireAdmin);
 
+router.get("/me", asyncHandler(async (req, res) => {
+  const { data: admin, error } = await supabase
+    .from("admins")
+    .select("id, name, email, username")
+    .eq("id", req.auth.id)
+    .maybeSingle();
+  if (error || !admin) return res.status(404).json({ error: "Admin account not found." });
+  res.json({ admin });
+}));
+
 /* ---------------------------- dashboard stats ---------------------------- */
 router.get("/stats", asyncHandler(async (_req, res) => {
   const { count: total } = await supabase.from("students").select("*", { count: "exact", head: true });
@@ -130,9 +140,7 @@ router.post("/students/import", upload.single("file"), asyncHandler(async (req, 
 }));
 
 router.delete("/students/:id_no", asyncHandler(async (req, res) => {
-  const { error } = await supabase.from("students").delete().eq("id_no", req.params.id_no);
-  if (error) return res.status(500).json({ error: "Couldn't remove that student." });
-  res.json({ status: "removed" });
+  return res.status(403).json({ error: "Student records cannot be deleted." });
 }));
 
 /* ---------------------------- candidates ---------------------------- */
@@ -154,9 +162,7 @@ router.post("/candidates", asyncHandler(async (req, res) => {
 }));
 
 router.delete("/candidates/:id", asyncHandler(async (req, res) => {
-  const { error } = await supabase.from("candidates").delete().eq("id", req.params.id);
-  if (error) return res.status(500).json({ error: "Couldn't remove that candidate." });
-  res.json({ status: "removed" });
+  return res.status(403).json({ error: "Candidates cannot be deleted." });
 }));
 
 /* ---------------------------- results ---------------------------- */
@@ -208,13 +214,7 @@ router.post("/admins", asyncHandler(async (req, res) => {
 }));
 
 router.delete("/admins/:id", asyncHandler(async (req, res) => {
-  const { count } = await supabase.from("admins").select("*", { count: "exact", head: true });
-  if ((count || 0) <= 1) return res.status(400).json({ error: "You can't remove the last remaining admin account." });
-  if (req.params.id === req.auth.id) return res.status(400).json({ error: "You can't remove your own account while logged in." });
-
-  const { error } = await supabase.from("admins").delete().eq("id", req.params.id);
-  if (error) return res.status(500).json({ error: "Couldn't remove that admin." });
-  res.json({ status: "removed" });
+  return res.status(403).json({ error: "Admin accounts cannot be deleted." });
 }));
 
 module.exports = router;

@@ -38,22 +38,22 @@ router.post("/register", upload.single("id_photo"), asyncHandler(async (req, res
     .from("students").select("id_no, email, registered, approval_status").eq("id_no", id_no).maybeSingle();
   if (lookupError) return res.status(500).json({ error: "Database error checking your Student ID." });
   if (!student) return res.status(404).json({ error: "That Student ID isn't in the school roster. Contact the election officer." });
-  if (student.registered || (student.approval_status === "approved" && student.email)) {
-    return res.status(409).json({ error: "This Student ID is already approved. Use your voting login instead." });
-  }
-  if (student.approval_status === "pending") {
-    return res.status(409).json({ error: "Your registration is already waiting for admin approval." });
-  }
-  if (student.email && student.email.toLowerCase() !== email.toLowerCase()) {
-    return res.status(409).json({ error: "This Student ID is already linked to a different email." });
+  if (student.approval_status !== "not_submitted") {
+    const message = student.approval_status === "pending"
+      ? "Your registration is already waiting for admin approval."
+      : student.approval_status === "approved" || student.registered
+        ? "This Student ID has already been used and approved. Use your voting login instead."
+        : "This Student ID has already been used for a registration and cannot be reused.";
+    return res.status(409).json({ error: message });
   }
 
-  const { error: updateError } = await supabase.from("students").update({
+  const { data: submittedStudent, error: updateError } = await supabase.from("students").update({
     first_name, last_name, suffix: suffix || null, block, email,
     id_photo: `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`,
     approval_status: "pending", approval_note: null, registered: false,
-  }).eq("id_no", id_no);
+  }).eq("id_no", id_no).eq("approval_status", "not_submitted").select("id_no").maybeSingle();
   if (updateError) return res.status(500).json({ error: "Couldn't submit your registration." });
+  if (!submittedStudent) return res.status(409).json({ error: "This Student ID has already been used for a registration." });
 
   res.json({ status: "pending", message: "Registration submitted. An election officer will review your ID and email your login after approval." });
 }));

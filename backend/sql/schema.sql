@@ -16,7 +16,7 @@ create extension if not exists pgcrypto;
 -- registered, registered_at, voted, voted_at, created_at.
 -- ---------------------------------------------------------------------
 create table if not exists students (
-  id_no          text primary key,
+  id_no          text primary key check (length(trim(id_no)) > 0),
   first_name     text,
   last_name      text,
   suffix         text,
@@ -140,6 +140,16 @@ end $$;
 
 -- Block already contains the course and section (for example, BSCS-3).
 alter table students drop column if exists course;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'students_id_no_not_blank'
+  ) then
+    alter table students add constraint students_id_no_not_blank check (length(trim(id_no)) > 0);
+  end if;
+end $$;
 -- (No policies are created, which means: no access via the anon/public
 --  key at all. Only the service role key, used server-side, can read or
 --  write these tables.)
