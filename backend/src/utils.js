@@ -5,6 +5,32 @@ function genUsername(name, idNo) {
   return `${first}.${last}${tail}`.toLowerCase().replace(/[^a-z0-9.]/g, "");
 }
 
+function studentDisplayName(student) {
+  const first = String(student?.first_name || "").trim();
+  const last = String(student?.last_name || "").trim();
+  const suffix = String(student?.suffix || "").trim();
+  if (first || last) return `${last}, ${first}${suffix ? ` ${suffix}` : ""}`.trim();
+  return String(student?.name || student?.id_no || "voter").trim();
+}
+
+function studentNameParts(name) {
+  const value = String(name || "").trim();
+  if (!value) return { first_name: "", last_name: "", suffix: null };
+  const commaParts = value.includes(",") ? value.split(/,(.+)/).map((part) => part.trim()) : null;
+  const lastPart = commaParts ? commaParts[0] : "";
+  const words = (commaParts ? commaParts[1] : value).split(/\s+/).filter(Boolean);
+  const suffixes = new Set(["jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "v"]);
+  const suffix = suffixes.has((words.at(-1) || "").toLowerCase()) ? words.pop() : null;
+  if (!commaParts) {
+    return { first_name: words.shift() || "", last_name: words.join(" "), suffix };
+  }
+  return {
+    first_name: words.join(" ") || lastPart,
+    last_name: lastPart,
+    suffix,
+  };
+}
+
 function genPassword(length = 10) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
   let out = "";
@@ -37,4 +63,4 @@ function asyncHandler(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 }
 
-module.exports = { genUsername, genPassword, genOtp, maskEmail, isGmail, asyncHandler };
+module.exports = { genUsername, studentDisplayName, studentNameParts, genPassword, genOtp, maskEmail, isGmail, asyncHandler };

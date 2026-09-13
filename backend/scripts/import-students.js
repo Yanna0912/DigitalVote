@@ -20,6 +20,7 @@ const fs = require("fs");
 const path = require("path");
 const Papa = require("papaparse");
 const { createClient } = require("@supabase/supabase-js");
+const { studentNameParts } = require("../src/utils");
 
 async function main() {
   const file = process.argv[2];
@@ -47,11 +48,6 @@ async function main() {
     console.error("CSV parse errors:", parsed.errors.slice(0, 5));
     process.exit(1);
   }
-const { data, error } = await supabase
-  .from('students')
-  .select('*')
-  .eq('id_no', studentId);
-  
   const rows = parsed.data
     .map((r) => {
       const get = (obj, keys) => {
@@ -60,9 +56,10 @@ const { data, error } = await supabase
         }
         return "";
       };
+      const name = String(get(r, ["name", "full name"]) || "").trim();
       return {
         id_no: String(get(r, ["id_no", "id no", "student id", "id"]) || "").trim(),
-        name: String(get(r, ["name", "full name"]) || "").trim(),
+        ...studentNameParts(name),
         block: String(get(r, ["block", "section"]) || "").trim(),
       };
     })

@@ -1,7 +1,7 @@
 const express = require("express");
 const { supabase } = require("../db");
 const { requireStudent } = require("../auth");
-const { asyncHandler } = require("../utils");
+const { studentDisplayName, asyncHandler } = require("../utils");
 
 const router = express.Router();
 
@@ -18,12 +18,12 @@ async function isVotingOpen() {
 router.get("/me", requireStudent, asyncHandler(async (req, res) => {
   const { data: student, error } = await supabase
     .from("students")
-    .select("id_no, name, block, voted, voted_at")
+    .select("id_no, first_name, last_name, suffix, block, voted, voted_at")
     .eq("id_no", req.auth.id_no)
     .maybeSingle();
   if (error || !student) return res.status(404).json({ error: "Student record not found." });
 
-  return res.json({ student, votingOpen: await isVotingOpen() });
+  return res.json({ student: { ...student, name: studentDisplayName(student) }, votingOpen: await isVotingOpen() });
 }));
 
 /**
@@ -60,7 +60,7 @@ router.post("/vote", requireStudent, asyncHandler(async (req, res) => {
 
   const { data: student, error: studentError } = await supabase
     .from("students")
-    .select("id_no, name, voted")
+    .select("id_no, voted")
     .eq("id_no", req.auth.id_no)
     .maybeSingle();
   if (studentError || !student) return res.status(404).json({ error: "Student record not found." });

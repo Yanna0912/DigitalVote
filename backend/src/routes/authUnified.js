@@ -1,7 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const { supabase } = require("../db");
-const { genOtp, maskEmail, asyncHandler } = require("../utils");
+const { genOtp, studentDisplayName, maskEmail, asyncHandler } = require("../utils");
 const { sendMail, adminOtpEmail } = require("../mailer");
 const { signStudentToken } = require("../auth");
 
@@ -47,6 +47,10 @@ router.post("/login", asyncHandler(async (req, res) => {
     .from("students").select("*").ilike("username", username).maybeSingle();
   if (studentError) return res.status(500).json({ error: "Database error during login." });
 
+  if (student && student.approval_status === "pending") {
+    return res.status(403).json({ error: "Your registration is still waiting for admin approval." });
+  }
+
   if (student && student.password_hash && (await bcrypt.compare(password, student.password_hash))) {
     const { data: setting } = await supabase.from("settings").select("value").eq("key", "voting_open").maybeSingle();
     const votingOpen = setting?.value === "true";
@@ -54,7 +58,7 @@ router.post("/login", asyncHandler(async (req, res) => {
     return res.json({
       role: "student",
       token,
-      student: { id_no: student.id_no, name: student.name, block: student.block, voted: student.voted, voted_at: student.voted_at },
+      student: { id_no: student.id_no, name: studentDisplayName(student), block: student.block, voted: student.voted, voted_at: student.voted_at },
       votingOpen,
     });
   }

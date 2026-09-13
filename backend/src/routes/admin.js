@@ -4,7 +4,8 @@ const Papa = require("papaparse");
 const bcrypt = require("bcryptjs");
 const { supabase } = require("../db");
 const { requireAdmin } = require("../auth");
-const { isGmail, asyncHandler } = require("../utils");
+const { genUsername, studentDisplayName, studentNameParts, genPassword, isGmail, asyncHandler } = require("../utils");
+const { sendMail, studentCredentialsEmail } = require("../mailer");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
@@ -39,10 +40,43 @@ router.post("/settings/voting-open", asyncHandler(async (req, res) => {
 router.get("/students", asyncHandler(async (_req, res) => {
   const { data, error } = await supabase
     .from("students")
-    .select("id_no, name, block, email, registered, registered_at, voted, voted_at, created_at")
+    .select("id_no, first_name, last_name, suffix, block, email, id_photo, approval_status, approval_note, registered, registered_at, voted, voted_at, created_at")
     .order("created_at", { ascending: true });
   if (error) return res.status(500).json({ error: "Couldn't load the roster." });
-  res.json({ students: data });
+  res.json({ students: data.map((student) => ({ ...student, name: studentDisplayName(student) })) });
+}));
+
+router.post("/students/:id_no/approve", asyncHandler(async (req, res) => {
+  const { data: student, error: lookupError } = await supabase.from("students").select("*").eq("id_no", req.params.id_no).maybeSingle();
+  if (lookupError) return res.status(500).json({ error: "Couldn't load that registration." });
+  if (!student) return res.status(404).json({ error: "Student registration not found." });
+  if (student.registered || student.approval_status === "approved") return res.status(409).json({ error: "That registration is already approved." });
+  if (!student.email) return res.status(400).json({ error: "The registration has no email address." });
+
+  const displayName = studentDisplayName(student);
+  const username = genUsername(displayName, student.id_no);
+  const plainPassword = genPassword();
+  const password_hash = await bcrypt.hash(plainPassword, 10);
+  const { error: updateError } = await supabase.from("students").update({
+    username, password_hash, registered: true, registered_at: new Date().toISOString(),
+    approval_status: "approved", approval_note: null,
+  }).eq("id_no", req.params.id_no);
+  if (updateError) return res.status(500).json({ error: "Couldn't approve that registration." });
+
+  const mailResult = await sendMail({ to: student.email, ...studentCredentialsEmail({ name: displayName, username, password: plainPassword }) });
+  res.json({
+    status: "approved",
+    emailed: mailResult.delivered,
+    message: mailResult.delivered ? `Approved and credentials emailed to ${student.email}.` : "Approved. Email delivery is not configured, so credentials are shown for testing.",
+    devCredentials: mailResult.delivered ? undefined : { username, password: plainPassword },
+  });
+}));
+
+router.post("/students/:id_no/disapprove", asyncHandler(async (req, res) => {
+  const note = String(req.body.note || "").trim();
+  const { error } = await supabase.from("students").update({ approval_status: "disapproved", approval_note: note || "Please contact the election officer for details.", id_photo: null }).eq("id_no", req.params.id_no);
+  if (error) return res.status(500).json({ error: "Couldn't disapprove that registration." });
+  res.json({ status: "disapproved" });
 }));
 
 router.post("/students", asyncHandler(async (req, res) => {
@@ -51,7 +85,8 @@ router.post("/students", asyncHandler(async (req, res) => {
   const block = String(req.body.block || "").trim();
   if (!id_no || !name) return res.status(400).json({ error: "Student ID and name are required." });
 
-  const { error } = await supabase.from("students").insert({ id_no, name, block });
+  const { first_name, last_name, suffix } = studentNameParts(name);
+  const { error } = await supabase.from("students").insert({ id_no, first_name, last_name, suffix, block });
   if (error) {
     if (error.code === "23505") return res.status(409).json({ error: "That Student ID already exists." });
     return res.status(500).json({ error: "Couldn't add that student." });
@@ -87,7 +122,8 @@ router.post("/students/import", upload.single("file"), asyncHandler(async (req, 
 
   // Upsert on id_no. Supabase upsert only touches the columns listed, so
   // email/username/password_hash/voted are left alone for existing rows.
-  const { error } = await supabase.from("students").upsert(rows, { onConflict: "id_no" });
+  const normalizedRows = rows.map((row) => ({ ...studentNameParts(row.name), id_no: row.id_no, block: row.block }));
+  const { error } = await supabase.from("students").upsert(normalizedRows, { onConflict: "id_no" });
   if (error) return res.status(500).json({ error: "Import failed while writing to the database." });
 
   res.json({ status: "imported", count: rows.length });

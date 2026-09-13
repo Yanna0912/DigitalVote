@@ -49,6 +49,23 @@ async function apiUpload(path, file, token) {
   return data;
 }
 
+async function apiMultipart(path, formData, token) {
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+  } catch (_networkErr) {
+    throw { error: "Can't reach the server. Check your connection and try again." };
+  }
+  let data = {};
+  try { data = await res.json(); } catch (_parseErr) { /* empty body is fine */ }
+  if (!res.ok) throw data && data.error ? data : { error: "Something went wrong. Please try again." };
+  return data;
+}
+
 /* ---------------- session state ---------------- */
 let studentToken = sessionStorage.getItem("ccdi_student_token") || null;
 let adminToken = sessionStorage.getItem("ccdi_admin_token") || null;
@@ -68,6 +85,9 @@ function timeStamp(d) {
   return new Date(d).toLocaleString("en-PH", { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" });
 }
 function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
+}
 
 /* ---------------- DOM refs ---------------- */
 const voterSection = document.getElementById("voterSection");
@@ -84,14 +104,17 @@ const credUser = document.getElementById("credUser");
 const credPass = document.getElementById("credPass");
 
 const otpOverlay = document.getElementById("otpOverlay");
+const registrationOverlay = document.getElementById("registrationOverlay");
 
 let activeTab = "register";
 let waitingPoll = null;
 let lastDevCredentials = null;
+let selectedRegistrationPhoto = null;
+let registrationPhotoPreviewUrl = null;
 
 /* ---------------- Step: REGISTER / LOG IN ---------------- */
 function renderEntryStep(tab) {
-  activeTab = tab || activeTab || "register";
+  activeTab = tab || activeTab || "login";
   voteFullscreen.classList.remove("show");
   voterSection.classList.remove("hidden");
   if (waitingPoll) { clearInterval(waitingPoll); waitingPoll = null; }
@@ -100,23 +123,27 @@ function renderEntryStep(tab) {
     <div class="panel-content">
       <p class="eyebrow">Voter access</p>
       <h2 class="step-title">${activeTab === "register" ? "Register to vote" : "Log in to vote"}</h2>
-      <div class="mode-tabs">
-        <button class="mode-tab ${activeTab === "register" ? "active" : ""}" id="tabRegisterBtn">First time &middot; Register</button>
-        <button class="mode-tab ${activeTab === "login" ? "active" : ""}" id="tabLoginBtn">Have a login &middot; Sign in</button>
-      </div>
       ${activeTab === "register" ? registerFormHtml() : loginFormHtml()}
     </div>`;
-
-  document.getElementById("tabRegisterBtn").onclick = () => renderEntryStep("register");
-  document.getElementById("tabLoginBtn").onclick = () => renderEntryStep("login");
 
   if (activeTab === "register") {
     document.getElementById("btnRegister").onclick = () => {
       handleRegister(document.getElementById("regId").value, document.getElementById("regEmail").value);
     };
+    document.getElementById("tabLoginBtn").onclick = () => renderEntryStep("login");
   } else {
+    document.getElementById("tabRegisterBtn").onclick = openRegistrationModal;
     document.getElementById("btnLogin").onclick = () => {
       handleLogin(document.getElementById("loginUser").value, document.getElementById("loginPass").value);
+    };
+    document.getElementById("toggleLoginPassword").onclick = () => {
+      const passwordInput = document.getElementById("loginPass");
+      const toggleButton = document.getElementById("toggleLoginPassword");
+      const isVisible = passwordInput.type === "text";
+      passwordInput.type = isVisible ? "password" : "text";
+      toggleButton.innerHTML = isVisible ? "&#128065;" : "&#128065;&#xfe0e;";
+      toggleButton.setAttribute("aria-label", isVisible ? "Show password" : "Hide password");
+      toggleButton.setAttribute("title", isVisible ? "Show password" : "Hide password");
     };
     document.getElementById("loginPass").addEventListener("keydown", (e) => {
       if (e.key === "Enter") document.getElementById("btnLogin").click();
@@ -134,18 +161,92 @@ function registerFormHtml() {
     </div>
     <p class="error-text" id="regError"></p>
     <button class="btn btn-primary" id="btnRegister">Register &amp; get my login</button>
-    <p class="panel-note" style="margin-top:14px;">First time, this saves your email against your Student ID and emails you a username and password. After that, your ID + email will just tell you to log in below.</p>`;
+    <p class="panel-note" style="margin-top:14px;">First time, this saves your email against your Student ID and emails you a username and password.</p>
+    <div class="signin-block">
+      <p class="signin-block-title">Have a login?</p>
+      <p class="signin-block-note">Use your username and password to access voting.</p>
+      <button class="btn-secondary" id="tabLoginBtn" type="button">Sign in</button>
+    </div>`;
 }
+
+function openRegistrationModal() {
+  document.getElementById("registrationError").textContent = "";
+  registrationOverlay.classList.add("show");
+  document.getElementById("registrationFirstName").focus();
+}
+
+async function submitRegistration() {
+  const errorEl = document.getElementById("registrationError");
+  errorEl.textContent = "";
+  const fieldIds = ["registrationFirstName", "registrationLastName", "registrationStudentId", "registrationBlock", "registrationEmail"];
+  const values = Object.fromEntries(fieldIds.map((id) => [id, document.getElementById(id).value.trim()]));
+  const photo = selectedRegistrationPhoto;
+  if (fieldIds.some((id) => !values[id]) || !photo) {
+    errorEl.textContent = "Complete all required fields and attach an ID photo.";
+    return;
+  }
+  const button = document.getElementById("submitRegistration");
+  button.disabled = true;
+  const form = new FormData();
+  form.append("first_name", values.registrationFirstName);
+  form.append("last_name", values.registrationLastName);
+  form.append("suffix", document.getElementById("registrationSuffix").value.trim());
+  form.append("id_no", values.registrationStudentId);
+  form.append("block", values.registrationBlock);
+  form.append("email", values.registrationEmail);
+  form.append("id_photo", photo);
+  try {
+    const data = await apiMultipart("/auth/student/register", form);
+    registrationOverlay.classList.remove("show");
+    alert(data.message || "Registration submitted for approval.");
+    document.getElementById("registrationPhotoCamera").value = "";
+    document.getElementById("registrationPhotoUpload").value = "";
+    selectedRegistrationPhoto = null;
+    if (registrationPhotoPreviewUrl) URL.revokeObjectURL(registrationPhotoPreviewUrl);
+    registrationPhotoPreviewUrl = null;
+    document.getElementById("registrationPhotoPreview").classList.remove("has-image");
+    document.getElementById("registrationPhotoPreviewImage").removeAttribute("src");
+    document.getElementById("registrationPhotoName").textContent = "No photo selected.";
+  } catch (err) {
+    errorEl.textContent = err.error || "Couldn't submit your registration.";
+  } finally {
+    button.disabled = false;
+  }
+}
+
+document.getElementById("registrationClose").onclick = () => registrationOverlay.classList.remove("show");
+document.getElementById("submitRegistration").onclick = submitRegistration;
+[
+  document.getElementById("registrationPhotoCamera"),
+  document.getElementById("registrationPhotoUpload"),
+].forEach((input) => {
+  input.onchange = () => {
+    const photo = input.files[0];
+    if (!photo) return;
+    selectedRegistrationPhoto = photo;
+    if (registrationPhotoPreviewUrl) URL.revokeObjectURL(registrationPhotoPreviewUrl);
+    registrationPhotoPreviewUrl = URL.createObjectURL(photo);
+    document.getElementById("registrationPhotoPreviewImage").src = registrationPhotoPreviewUrl;
+    document.getElementById("registrationPhotoPreview").classList.add("has-image");
+    document.getElementById("registrationPhotoName").textContent = photo.name;
+  };
+});
+
 function loginFormHtml() {
   return `
     <div class="field">
       <input type="text" id="loginUser" placeholder="Username" autocomplete="off">
     </div>
-    <div class="field">
+    <div class="field password-field">
       <input type="password" id="loginPass" placeholder="Password" autocomplete="off">
+      <button class="password-toggle" id="toggleLoginPassword" type="button" aria-label="Show password" title="Show password">&#128065;</button>
     </div>
     <p class="error-text" id="loginError"></p>
-    <button class="btn btn-primary" id="btnLogin">Log in</button>`;
+    <button class="btn btn-primary" id="btnLogin">Log in</button>
+    <div class="signin-block">
+      <p class="signin-block-title">First time here?</p>
+      <button class="btn-secondary" id="tabRegisterBtn" type="button">Register</button>
+    </div>`;
 }
 
 async function handleRegister(idInput, emailInput) {
@@ -433,6 +534,7 @@ function openAdminDashboard(admin) {
 function refreshAll() {
   renderStatRow();
   renderResultsPanel();
+  renderPendingRegistrations();
   renderBlockGrid();
   renderRosterTable();
   renderCandidateList();
@@ -581,6 +683,64 @@ async function renderRosterTable() {
       } catch (err) { alert(err.error || "Couldn't remove that student."); }
     };
   });
+}
+
+async function renderPendingRegistrations() {
+  const list = document.getElementById("pendingRegistrationsList");
+  if (!list) return;
+  try {
+    const data = await api("/admin/students", { token: adminToken });
+    const pending = (data.students || []).filter((student) => student.approval_status === "pending");
+    if (!pending.length) {
+      list.innerHTML = `<p class="panel-note">No registrations are waiting for review.</p>`;
+      return;
+    }
+    list.innerHTML = pending.map((student) => `
+      <article class="pending-registration">
+        <div class="pending-registration-photo">
+          ${student.id_photo ? `<img src="${student.id_photo}" alt="ID verification for ${escapeHtml(student.name)}">` : "<span>No photo</span>"}
+        </div>
+        <div class="pending-registration-details">
+          <h4>${escapeHtml(student.name)}</h4>
+          <p>${escapeHtml(student.id_no)} &middot; Block: ${escapeHtml(student.block || "No block")}</p>
+          <p>${escapeHtml(student.email || "No email")}</p>
+          <div class="pending-registration-actions">
+            <button class="btn-gradient btn-small" data-approve-registration="${encodeURIComponent(student.id_no)}">Approve</button>
+            <button class="btn-secondary btn-small" data-disapprove-registration="${encodeURIComponent(student.id_no)}">Disapprove</button>
+          </div>
+        </div>
+      </article>`).join("");
+
+    list.querySelectorAll("[data-approve-registration]").forEach((button) => {
+      button.onclick = async () => {
+        button.disabled = true;
+        try {
+          const data = await api(`/admin/students/${button.dataset.approveRegistration}/approve`, { method: "POST", token: adminToken });
+          renderPendingRegistrations(); renderRosterTable(); renderBlockGrid(); renderStatRow();
+          alert(data.message + (data.devCredentials ? `\n\nUsername: ${data.devCredentials.username}\nPassword: ${data.devCredentials.password}` : ""));
+        } catch (err) {
+          button.disabled = false;
+          alert(err.error || "Couldn't approve that registration.");
+        }
+      };
+    });
+    list.querySelectorAll("[data-disapprove-registration]").forEach((button) => {
+      button.onclick = async () => {
+        const note = prompt("Reason for disapproval (optional):", "");
+        if (note === null) return;
+        button.disabled = true;
+        try {
+          await api(`/admin/students/${button.dataset.disapproveRegistration}/disapprove`, { method: "POST", token: adminToken, body: { note } });
+          renderPendingRegistrations();
+        } catch (err) {
+          button.disabled = false;
+          alert(err.error || "Couldn't disapprove that registration.");
+        }
+      };
+    });
+  } catch (_err) {
+    list.innerHTML = `<p class="error-text">Couldn't load pending registrations.</p>`;
+  }
 }
 
 /* Add Student modal (manual add + CSV import) */
@@ -789,4 +949,4 @@ document.getElementById("resetDemo").onclick = () => {
 };
 
 /* ---------------- Boot ---------------- */
-renderEntryStep("register");
+renderEntryStep("login");

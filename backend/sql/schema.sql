@@ -9,15 +9,22 @@ create extension if not exists pgcrypto;
 
 -- ---------------------------------------------------------------------
 -- students
--- Imported from the school's CSV (id_no, name, block). Email, username,
--- and password_hash start empty and are filled in the first time a
--- student logs in with an ID number + email that match this table.
+-- Imported from the school's CSV (id_no, name, block). New applicants add
+-- their details and ID photo, then receive credentials only after approval.
+-- Column order: id_no, first_name, last_name, suffix, block, email,
+-- id_photo, approval_status, approval_note, username, password_hash,
+-- registered, registered_at, voted, voted_at, created_at.
 -- ---------------------------------------------------------------------
 create table if not exists students (
   id_no          text primary key,
-  name           text not null,
+  first_name     text,
+  last_name      text,
+  suffix         text,
   block          text,
   email          text,
+  id_photo       text,
+  approval_status text not null default 'not_submitted',
+  approval_note  text,
   username       text unique,
   password_hash  text,
   registered     boolean not null default false,
@@ -105,6 +112,34 @@ alter table admin_otp_codes enable row level security;
 alter table candidates enable row level security;
 alter table votes enable row level security;
 alter table settings enable row level security;
+
+-- Registration review fields for existing installations.
+alter table students add column if not exists first_name text;
+alter table students add column if not exists last_name text;
+alter table students add column if not exists suffix text;
+alter table students add column if not exists id_photo text;
+alter table students add column if not exists approval_status text not null default 'not_submitted';
+alter table students add column if not exists approval_note text;
+update students set approval_status = 'not_submitted'
+where approval_status = 'approved' and registered = false and email is null;
+
+-- Migrate older installations that still have the combined name column.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_name = 'students' and column_name = 'name'
+  ) then
+    execute 'update students
+      set last_name = coalesce(last_name, nullif(split_part(name, '','', 1), '''')),
+          first_name = coalesce(first_name, nullif(trim(split_part(name, '','', 2)), ''''))
+      where first_name is null or last_name is null';
+    execute 'alter table students drop column name';
+  end if;
+end $$;
+
+-- Block already contains the course and section (for example, BSCS-3).
+alter table students drop column if exists course;
 -- (No policies are created, which means: no access via the anon/public
 --  key at all. Only the service role key, used server-side, can read or
 --  write these tables.)
