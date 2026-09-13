@@ -459,6 +459,8 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .pending-registration-details p{margin:3px 0; color:var(--muted); font-size:12px; line-height:1.4; word-break:break-word;}
 .pending-registration-actions{display:flex; gap:8px; margin-top:10px;}
 .pending-registration-actions .btn-small{padding:8px 12px; margin:0;}
+.pending-registration{transition:opacity .2s ease, transform .2s ease;}
+.pending-registration.is-processing{opacity:.55; transform:translateY(-2px);}
 
 .icon-btn{
   border:1px solid var(--line); background:rgba(255,255,255,.04); color:var(--muted);

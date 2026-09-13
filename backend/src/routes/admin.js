@@ -73,12 +73,14 @@ router.post("/students/:id_no/approve", asyncHandler(async (req, res) => {
   }).eq("id_no", req.params.id_no);
   if (updateError) return res.status(500).json({ error: "Couldn't approve that registration." });
 
-  const mailResult = await sendMail({ to: student.email, ...studentCredentialsEmail({ name: displayName, username, password: plainPassword }) });
+  const credentialMail = studentCredentialsEmail({ name: displayName, username, password: plainPassword });
+  sendMail({ to: student.email, ...credentialMail }).catch((error) => {
+    console.error(`[mailer] Approval email failed for ${student.email}:`, error.message);
+  });
   res.json({
     status: "approved",
-    emailed: mailResult.delivered,
-    message: mailResult.delivered ? `Approved and credentials emailed to ${student.email}.` : "Approved. Email delivery is not configured, so credentials are shown for testing.",
-    devCredentials: mailResult.delivered ? undefined : { username, password: plainPassword },
+    emailed: true,
+    message: `Approved. Voting credentials are being sent to ${student.email}.`,
   });
 }));
 

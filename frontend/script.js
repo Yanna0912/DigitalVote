@@ -485,15 +485,8 @@ function resetToStart() {
 
 async function restoreSession() {
   if (adminToken) {
-    try {
-      const data = await api("/admin/me", { token: adminToken });
-      currentAdmin = data.admin;
-      openAdminDashboard(data.admin);
-      return;
-    } catch (_err) {
-      clearAdminToken();
-      currentAdmin = null;
-    }
+    clearAdminToken();
+    currentAdmin = null;
   }
 
   if (studentToken) {
@@ -735,13 +728,21 @@ async function renderPendingRegistrations() {
 
     list.querySelectorAll("[data-approve-registration]").forEach((button) => {
       button.onclick = async () => {
+        const card = button.closest(".pending-registration");
+        const actions = card.querySelector(".pending-registration-actions");
         button.disabled = true;
+        actions.querySelectorAll("button").forEach((action) => { action.disabled = true; });
+        button.textContent = "Approving...";
+        card.classList.add("is-processing");
         try {
-          const data = await api(`/admin/students/${button.dataset.approveRegistration}/approve`, { method: "POST", token: adminToken });
+          card.remove();
+          if (!list.querySelector(".pending-registration")) {
+            list.innerHTML = `<p class="panel-note">Saving approval...</p>`;
+          }
+          await api(`/admin/students/${button.dataset.approveRegistration}/approve`, { method: "POST", token: adminToken });
           renderPendingRegistrations(); renderRosterTable(); renderBlockGrid(); renderStatRow();
-          alert(data.message + (data.devCredentials ? `\n\nUsername: ${data.devCredentials.username}\nPassword: ${data.devCredentials.password}` : ""));
         } catch (err) {
-          button.disabled = false;
+          renderPendingRegistrations();
           alert(err.error || "Couldn't approve that registration.");
         }
       };
