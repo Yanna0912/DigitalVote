@@ -32,7 +32,10 @@ function getTransporter() {
       lookup: (hostname, options, callback) => {
         dns.lookup(hostname, { family: 4 }, callback);
       },
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      auth: {
+        user: process.env.SMTP_USER.trim(),
+        pass: process.env.SMTP_PASS.replace(/\s/g, ""),
+      },
     });
     return transporter;
   } catch (err) {
@@ -52,7 +55,7 @@ async function sendMail({ to, subject, html, text }) {
   if (resend) {
     try {
       const { data, error } = await resend.emails.send({
-        from: process.env.RESEND_FROM || process.env.MAIL_FROM || "onboarding@resend.dev",
+        from: process.env.RESEND_FROM || "onboarding@resend.dev",
         to: [to],
         subject,
         html,
@@ -60,13 +63,13 @@ async function sendMail({ to, subject, html, text }) {
       });
       if (error) {
         console.error(`[mailer] Resend rejected email to ${to}:`, error.message || error);
-        return { delivered: false, reason: "resend_rejected", error: error.message || String(error) };
+      } else {
+        return { delivered: true, provider: "resend", id: data?.id };
       }
-      return { delivered: true, provider: "resend", id: data?.id };
     } catch (err) {
       console.error(`[mailer] Resend failed for ${to}:`, err.message);
-      return { delivered: false, reason: "resend_failed", error: err.message };
     }
+    console.warn(`[mailer] Falling back to SMTP for ${to}.`);
   }
 
   const t = getTransporter();

@@ -590,14 +590,33 @@ async function renderStatRow() {
     return;
   }
   const open = stats.votingOpen;
-  document.getElementById("statRow").innerHTML = `
-    <div class="stat-card"><div class="stat-num">${stats.total}</div><div class="stat-label">Total students</div></div>
-    <div class="stat-card"><div class="stat-num">${stats.registeredNotVoted}</div><div class="stat-label">Credentials issued, not yet voted</div></div>
-    <div class="stat-card"><div class="stat-num">${stats.voted}</div><div class="stat-label">Voted</div></div>
-    <div class="stat-card status-card ${open ? "status-open" : "status-closed"}" id="statusCard">
-      <div><span class="status-dot"></span><strong>${open ? "Voting OPEN" : "Voting CLOSED"}</strong></div>
-      <div class="status-toggle-label">Tap to ${open ? "close" : "open"} voting</div>
+  const statRow = document.getElementById("statRow");
+  statRow.innerHTML = `
+    <div class="stat-card total-stat-card">
+      <div class="stat-label">Total students</div>
+      <div class="stat-num">${stats.total}</div>
+    </div>
+    <div class="metric-card-grid">
+      <div class="stat-card metric-stat-card"><div class="stat-num">${stats.pending}</div><div class="stat-label">Pending approval</div></div>
+      <div class="stat-card metric-stat-card"><div class="stat-num">${stats.registeredNotVoted}</div><div class="stat-label">Credentials issued</div></div>
+      <div class="stat-card metric-stat-card"><div class="stat-num">${stats.voted}</div><div class="stat-label">Voted</div></div>
     </div>`;
+
+  document.getElementById("statusCardContainer").innerHTML = `
+    <button class="stat-card status-card ${open ? "status-open" : "status-closed"}" id="statusCard">
+      <span><span class="status-dot"></span><strong>${open ? "Voting OPEN" : "Voting CLOSED"}</strong></span>
+      <span class="status-toggle-label">Click to ${open ? "close" : "open"} voting</span>
+    </button>`;
+
+  const chartTotal = Math.max(1, stats.pending + stats.registeredNotVoted + stats.voted);
+  const pendingAngle = (stats.pending / chartTotal) * 360;
+  const credentialAngle = pendingAngle + (stats.registeredNotVoted / chartTotal) * 360;
+  document.getElementById("participationChart").style.background = `conic-gradient(var(--red) 0deg ${pendingAngle}deg, var(--blue-light) ${pendingAngle}deg ${credentialAngle}deg, var(--success) ${credentialAngle}deg 360deg)`;
+  document.getElementById("participationLegend").innerHTML = [
+    ["Pending approval", stats.pending, "var(--red)"],
+    ["Credentials issued", stats.registeredNotVoted, "var(--blue-light)"],
+    ["Voted", stats.voted, "var(--success)"],
+  ].map(([label, value, color]) => `<div class="legend-item"><span class="legend-dot" style="background:${color}"></span><strong>${label}</strong><span>${value}</span></div>`).join("");
 
   document.getElementById("statusCard").onclick = async () => {
     try {
@@ -643,6 +662,7 @@ async function renderResultsPanel() {
 
 /* ---- students: per-block summary cards + collapsible full roster ---- */
 let cachedRoster = [];
+let selectedRosterBlock = null;
 async function renderBlockGrid() {
   try {
     const data = await api("/admin/students", { token: adminToken });
@@ -668,7 +688,7 @@ async function renderBlockGrid() {
         const votedPct = b.total ? Math.round((b.voted / b.total) * 100) : 0;
         const genPct = b.total ? Math.round((b.registered / b.total) * 100) : 0;
         return `
-          <div class="block-card">
+          <div class="block-card" data-roster-block="${escapeHtml(key)}" title="Show students in ${escapeHtml(key)}">
             <h4>${key}</h4>
             <div class="block-metric">
               <div class="block-metric-label"><span>Voted</span><span>${votedPct}%</span></div>
@@ -681,6 +701,16 @@ async function renderBlockGrid() {
           </div>`;
       }).join("")
     : `<p class="panel-note">No students in the roster yet.</p>`;
+
+  grid.querySelectorAll("[data-roster-block]").forEach((card) => {
+    card.onclick = () => {
+      const block = card.dataset.rosterBlock;
+      selectedRosterBlock = selectedRosterBlock === block ? null : block;
+      document.querySelector(".roster-details").open = true;
+      renderRosterTable();
+      grid.querySelectorAll(".block-card").forEach((item) => item.classList.toggle("is-selected", item === card && selectedRosterBlock !== null));
+    };
+  });
 }
 
 async function renderRosterTable() {
@@ -690,10 +720,14 @@ async function renderRosterTable() {
       cachedRoster = data.students || [];
     } catch (_err) { cachedRoster = []; }
   }
-  document.getElementById("rosterCount").textContent = cachedRoster.length;
+  const visibleRoster = selectedRosterBlock
+    ? cachedRoster.filter((student) => (student.block || "No block") === selectedRosterBlock)
+    : cachedRoster;
+  document.getElementById("rosterCount").textContent = visibleRoster.length;
+  document.getElementById("rosterFilterLabel").textContent = selectedRosterBlock ? `- ${selectedRosterBlock}` : "";
   const tbody = document.querySelector("#rosterTable tbody");
-  tbody.innerHTML = cachedRoster.length
-    ? cachedRoster.map((s) => `
+  tbody.innerHTML = visibleRoster.length
+    ? visibleRoster.map((s) => `
       <tr>
         <td>${s.id_no}</td><td>${s.name}</td><td>${s.block || "&mdash;"}</td><td>${s.email || "&mdash;"}</td>
       </tr>`).join("")

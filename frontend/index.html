@@ -90,11 +90,19 @@
       <main class="admin-main">
 
         <section class="admin-panel" id="adminPanelDashboard">
-          <div class="panel-header-row">
+          <div class="dashboard-header-row">
             <h2>Dashboard</h2>
+            <div id="statusCardContainer"></div>
           </div>
-          <div class="stat-row" id="statRow"></div>
-          <div class="glass-card" id="resultsCard"></div>
+          <div class="dashboard-overview">
+            <div class="dashboard-metrics" id="statRow"></div>
+            <div class="glass-card participation-card">
+              <h3 class="panel-heading">Participation overview</h3>
+              <div class="participation-chart" id="participationChart"></div>
+              <div class="participation-legend" id="participationLegend"></div>
+            </div>
+          </div>
+          <div class="glass-card dashboard-results" id="resultsCard"></div>
         </section>
 
         <section class="admin-panel hidden" id="adminPanelStudents">
@@ -108,7 +116,7 @@
           </div>
           <div class="block-grid" id="blockGrid"></div>
           <details class="roster-details">
-            <summary>Full roster (<span id="rosterCount">0</span>)</summary>
+            <summary>Full roster <span id="rosterFilterLabel"></span> (<span id="rosterCount">0</span>)</summary>
             <table class="dark-table" id="rosterTable">
               <thead><tr><th>Student ID</th><th>Name</th><th>Block</th><th>Email</th></tr></thead>
               <tbody></tbody>

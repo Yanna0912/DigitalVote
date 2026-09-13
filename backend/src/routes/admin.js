@@ -28,10 +28,12 @@ router.get("/stats", asyncHandler(async (_req, res) => {
   const { count: registeredNotVoted } = await supabase
     .from("students").select("*", { count: "exact", head: true }).eq("registered", true).eq("voted", false);
   const { count: voted } = await supabase.from("students").select("*", { count: "exact", head: true }).eq("voted", true);
+  const { count: pending } = await supabase.from("students").select("*", { count: "exact", head: true }).eq("approval_status", "pending");
   const { data: setting } = await supabase.from("settings").select("value").eq("key", "voting_open").maybeSingle();
 
   res.json({
     total: total || 0,
+    pending: pending || 0,
     registeredNotVoted: registeredNotVoted || 0,
     voted: voted || 0,
     votingOpen: setting?.value === "true",
