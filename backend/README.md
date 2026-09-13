@@ -19,8 +19,20 @@ open/closed switch), and CSV roster import.
 
 ## 2. Set up outgoing email
 
-Any SMTP provider works. The simplest free option for a school project is
-Gmail with an **App Password**:
+Resend is supported directly and is preferred for deployed use. Add these
+variables to Render (and local `.env` when testing locally):
+
+```
+RESEND_API_KEY=re_...
+RESEND_FROM=CCDI Election Portal <no-reply@your-verified-domain.com>
+```
+
+In Resend, verify the domain used by `RESEND_FROM`. For a temporary test,
+you can use `onboarding@resend.dev`, but Resend may restrict that sender to
+the email address associated with your Resend account.
+
+SMTP is also supported as a fallback. The simplest SMTP option for a school
+project is Gmail with an **App Password**:
 
 1. Turn on 2-Step Verification on the sending Gmail account.
 2. Google Account → Security → **App passwords** → create one for "Mail".

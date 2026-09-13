@@ -1,4 +1,5 @@
 const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const dns = require("dns");
 
 // Force Node.js to resolve IPv4 addresses first globally
@@ -7,6 +8,15 @@ if (dns.setDefaultResultOrder) {
 }
 
 let transporter = null;
+let resendClient = null;
+
+function getResendClient() {
+  if (resendClient) return resendClient;
+  if (!process.env.RESEND_API_KEY) return null;
+  resendClient = new Resend(process.env.RESEND_API_KEY.trim());
+  return resendClient;
+}
+
 function getTransporter() {
   if (transporter) return transporter;
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
@@ -38,6 +48,27 @@ function getTransporter() {
  * development) keeps working while you're still setting up email.
  */
 async function sendMail({ to, subject, html, text }) {
+  const resend = getResendClient();
+  if (resend) {
+    try {
+      const { data, error } = await resend.emails.send({
+        from: process.env.RESEND_FROM || process.env.MAIL_FROM || "onboarding@resend.dev",
+        to: [to],
+        subject,
+        html,
+        text,
+      });
+      if (error) {
+        console.error(`[mailer] Resend rejected email to ${to}:`, error.message || error);
+        return { delivered: false, reason: "resend_rejected", error: error.message || String(error) };
+      }
+      return { delivered: true, provider: "resend", id: data?.id };
+    } catch (err) {
+      console.error(`[mailer] Resend failed for ${to}:`, err.message);
+      return { delivered: false, reason: "resend_failed", error: err.message };
+    }
+  }
+
   const t = getTransporter();
   if (!t) {
     // eslint-disable-next-line no-console
