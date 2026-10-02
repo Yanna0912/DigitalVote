@@ -87,12 +87,23 @@ router.post("/students/:id_no/approve", asyncHandler(async (req, res) => {
 
   const credentialMail = studentCredentialsEmail({ name: displayName, username, password: plainPassword });
   const mailResult = await sendMail({ to: student.email, ...credentialMail });
+  if (!mailResult.delivered) {
+    const { error: rollbackError } = await supabase.from("students").update({
+      username: null,
+      password_hash: null,
+      registered: false,
+      registered_at: null,
+      approval_status: "pending",
+    }).eq("id_no", student.id_no).eq("approval_status", "approved");
+    if (rollbackError) console.error(`[approval] Failed to return ${student.id_no} to pending after email failure:`, rollbackError.message);
+    return res.status(502).json({
+      error: `Credentials could not be emailed to ${student.email}. ${mailResult.error || "Check the Resend sender/domain configuration."}`,
+    });
+  }
   res.json({
     status: "approved",
-    emailed: mailResult.delivered,
-    message: mailResult.delivered
-      ? `Approved. Credentials were sent to ${student.email}.`
-      : `Approved, but the email could not be sent to ${student.email}. Use Resend credentials from the roster after checking the email configuration.`,
+    emailed: true,
+    message: `Approved. Credentials were sent to ${student.email}.`,
   });
 }));
 
@@ -107,6 +118,7 @@ router.post("/students/:id_no/resend-credentials", asyncHandler(async (req, res)
   const displayName = studentDisplayName(student);
   const plainPassword = genPassword();
   const password_hash = await bcrypt.hash(plainPassword, 10);
+  const previousPasswordHash = student.password_hash;
   const { error: updateError } = await supabase.from("students").update({ password_hash }).eq("id_no", student.id_no);
   if (updateError) return res.status(500).json({ error: "Couldn't refresh the student's password." });
 
@@ -114,12 +126,16 @@ router.post("/students/:id_no/resend-credentials", asyncHandler(async (req, res)
     to: student.email,
     ...studentCredentialsEmail({ name: displayName, username: student.username, password: plainPassword }),
   });
+  if (!mailResult.delivered) {
+    const { error: rollbackError } = await supabase.from("students").update({ password_hash: previousPasswordHash }).eq("id_no", student.id_no);
+    if (rollbackError) console.error(`[credentials] Failed to restore password hash for ${student.id_no}:`, rollbackError.message);
+  }
   res.json({
     status: mailResult.delivered ? "sent" : "failed",
     emailed: mailResult.delivered,
     message: mailResult.delivered
       ? `New credentials were sent to ${student.email}.`
-      : `Email delivery failed for ${student.email}. Check the Resend/SMTP configuration and retry.`,
+      : `Email delivery failed for ${student.email}. ${mailResult.error || "Check the Resend sender/domain and SMTP configuration."} The existing password was kept unchanged.`,
   });
 }));
 

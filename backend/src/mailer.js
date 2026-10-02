@@ -52,6 +52,7 @@ function getTransporter() {
  */
 async function sendMail({ to, subject, html, text }) {
   const resend = getResendClient();
+  let resendError = null;
   if (resend) {
     try {
       const { data, error } = await resend.emails.send({
@@ -62,11 +63,13 @@ async function sendMail({ to, subject, html, text }) {
         text,
       });
       if (error) {
+        resendError = error.message || String(error);
         console.error(`[mailer] Resend rejected email to ${to}:`, error.message || error);
       } else {
         return { delivered: true, provider: "resend", id: data?.id };
       }
     } catch (err) {
+      resendError = err.message;
       console.error(`[mailer] Resend failed for ${to}:`, err.message);
     }
     console.warn(`[mailer] Falling back to SMTP for ${to}.`);
@@ -79,7 +82,11 @@ async function sendMail({ to, subject, html, text }) {
       `[mailer] SMTP is not configured — email NOT actually sent.\n` +
       `  To: ${to}\n  Subject: ${subject}\n  Body:\n${text || html}\n`
     );
-    return { delivered: false, reason: "not_configured" };
+    return {
+      delivered: false,
+      reason: resendError ? "providers_failed" : "not_configured",
+      error: resendError || "No email provider is configured.",
+    };
   }
   try {
     await t.sendMail({
@@ -95,7 +102,10 @@ async function sendMail({ to, subject, html, text }) {
     // should degrade to the dev-preview fallback — not 500 the request.
     // eslint-disable-next-line no-console
     console.error(`[mailer] Send failed: ${err.message}\n  To: ${to}\n  Subject: ${subject}`);
-    return { delivered: false, reason: "send_failed", error: err.message };
+    const providerError = resendError
+      ? `Resend: ${resendError}; SMTP: ${err.message}`
+      : err.message;
+    return { delivered: false, reason: "send_failed", error: providerError };
   }
 }
 
