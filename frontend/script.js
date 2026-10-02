@@ -102,6 +102,7 @@ const voterSection = document.getElementById("voterSection");
 const adminSection = document.getElementById("adminSection");
 const panel = document.getElementById("panel");
 const voteFullscreen = document.getElementById("voteFullscreen");
+const publicPage = voterSection.closest(".page");
 
 const credOverlay = document.getElementById("credOverlay");
 const credEyebrow = document.getElementById("credEyebrow");
@@ -123,6 +124,7 @@ let registrationPhotoPreviewUrl = null;
 /* ---------------- Step: REGISTER / LOG IN ---------------- */
 function renderEntryStep(tab) {
   activeTab = tab || activeTab || "login";
+  publicPage.classList.remove("hidden");
   voteFullscreen.classList.remove("show");
   voterSection.classList.remove("hidden");
   if (waitingPoll) { clearInterval(waitingPoll); waitingPoll = null; }
@@ -355,6 +357,7 @@ document.querySelectorAll(".copy-btn").forEach((btn) => {
 /* replacing the whole screen instead of living in the small login card. */
 function enterFullscreen(mode) {
   voterSection.classList.add("hidden");
+  publicPage.classList.add("hidden");
   voteFullscreen.className = `vote-fullscreen show ${mode}`;
 }
 
@@ -555,6 +558,7 @@ document.getElementById("otpResendLink").onclick = async (e) => {
 /* ---------------- Admin dashboard ---------------- */
 function openAdminDashboard(admin) {
   voterSection.classList.add("hidden");
+  publicPage.classList.add("hidden");
   voteFullscreen.classList.remove("show");
   adminSection.classList.remove("hidden");
   document.getElementById("adminWho").textContent = `${admin.name} \u00b7 ${admin.email}`;
@@ -573,6 +577,7 @@ function refreshAll() {
 }
 document.getElementById("adminLogout").onclick = () => {
   adminSection.classList.add("hidden");
+  publicPage.classList.remove("hidden");
   voterSection.classList.remove("hidden");
   clearAdminToken();
   currentAdmin = null;
