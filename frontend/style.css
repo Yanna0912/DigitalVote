@@ -79,8 +79,9 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 
 /* ---------- hero / highlight ---------- */
 .hero{
+  width:100%;
   text-align:center;
-  padding:14px clamp(20px,6vw,56px) 4px;
+  padding:0 0 14px;
 }
 .hero-eyebrow {
   display: inline-block;
@@ -96,8 +97,8 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   margin-bottom: 0.75rem;
 }
 .hero-title{
-  font-size:clamp(26px,3.4vw,42px); font-weight:800; color:var(--ink);
-  line-height:1; margin:0 auto; max-width:760px;
+  font-size:clamp(28px,3.4vw,46px); font-weight:800; color:var(--ink);
+  line-height:1.08; margin:0 auto; max-width:560px;
 }
 .hero-title mark{
   background:linear-gradient(120deg, var(--blue), var(--teal));
@@ -119,7 +120,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
     box-shadow: none;
   flex:1;
   min-height:0;
-  padding: 12px 20px;
+  padding: 52px 20px 12px;
   gap: 28px;
   
   /* Distansya sa gitna ng maskot at card */
@@ -127,15 +128,17 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 
 .left-space {
   flex: 1; /* Hati sila sa espasyo (50%) */
+  min-width:0;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items:flex-start;
 }
 
 .left-space img {
   width: 100%;
   max-width: 480px; /* Limitahan ang lapad ng maskot */
-  max-height:46vh;
+  max-height:38vh;
   height: auto;
   display: block;
   margin-right:  auto;
@@ -168,7 +171,9 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   box-shadow:var(--shadow);
   overflow:hidden;
 }
-.main-container {
+
+@media (max-width:768px){
+  .main-container {
     flex:0 0 auto;
     flex-direction: column !important; /* Ginagawa silang patayo sa maliit na screen */
     align-items: center !important;
@@ -188,6 +193,10 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   .left-space img {
     max-height:none;
   }
+  .left-space{width:100%; align-items:center;}
+  .left-space .hero{text-align:center; padding:0 10px 12px;}
+  .left-space .hero-title{margin:0 auto;}
+}
 
 
 /* Make .panel stretch inside .card */
@@ -453,7 +462,9 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .pending-registration-actions{display:flex; gap:8px; margin-top:10px;}
 .pending-registration-actions .btn-small{padding:8px 12px; margin:0;}
 .pending-registration{transition:opacity .2s ease, transform .2s ease;}
+.pending-registration{animation:pending-registration-enter .22s ease both;}
 .pending-registration.is-processing{opacity:.55; transform:translateY(-2px);}
+@keyframes pending-registration-enter{from{opacity:0; transform:translateY(6px);}to{opacity:1; transform:translateY(0);}}
 
 .icon-btn{
   border:1px solid var(--line); background:rgba(255,255,255,.04); color:var(--muted);
@@ -540,7 +551,10 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .participation-card{max-width:none; margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;}
 .participation-card .panel-heading{margin-bottom:10px;}
 .participation-chart{width:clamp(130px,15vw,180px); aspect-ratio:1; border-radius:50%; position:relative; margin:4px auto 14px;}
-.participation-chart::after{content:''; position:absolute; inset:26%; border-radius:50%; background:var(--panel); box-shadow:0 0 0 1px var(--line);}
+.participation-chart::after{content:''; position:absolute; inset:26%; z-index:0; border-radius:50%; background:var(--panel); box-shadow:0 0 0 1px var(--line);}
+.participation-chart-center{position:absolute; inset:26%; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--ink);}
+.participation-chart-center strong{font-family:'Sora',sans-serif; font-size:22px; font-weight:800;}
+.participation-chart-center small{font-size:10px; color:var(--muted); text-transform:uppercase;}
 .participation-legend{width:100%; display:grid; gap:6px;}
 .legend-item{display:grid; grid-template-columns:10px 1fr auto; align-items:center; gap:7px; text-align:left; font-size:11px; color:var(--muted);}
 .legend-item strong{color:var(--ink); font-size:11px;}
@@ -600,6 +614,26 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   padding:13px 16px; border:1px solid var(--line); border-radius:12px;
   background:rgba(255,255,255,.02); margin-bottom:8px;
 }
+.candidate-list-row:has(.candidate-profile-card){padding:0; border:0; background:transparent; margin-bottom:10px;}
+.candidate-profile-card{
+  width:100%; display:grid; grid-template-columns:76px minmax(0,1fr) 112px;
+  align-items:center; gap:14px; padding:12px;
+  border:1px solid var(--line); border-radius:12px;
+  background:rgba(255,255,255,.035); text-align:left;
+}
+.candidate-profile-photo{width:76px; height:76px; display:flex; align-items:center; justify-content:center; overflow:hidden; border-radius:10px; background:rgba(255,255,255,.08); color:var(--blue-light); font-family:'Sora',sans-serif; font-size:22px; font-weight:800;}
+.candidate-profile-photo img{width:100%; height:100%; object-fit:cover;}
+.candidate-profile-info{min-width:0; display:flex; flex-direction:column; gap:4px;}
+.candidate-profile-info strong{font-size:15px; font-weight:800; color:var(--ink); overflow-wrap:anywhere;}
+.candidate-profile-info span{font-size:11px; color:var(--muted); overflow-wrap:anywhere;}
+.candidate-profile-info .candidate-profile-party{color:var(--teal); font-weight:700;}
+.candidate-profile-result{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; min-height:54px; border-left:1px solid var(--line); color:var(--ink); text-align:center;}
+.candidate-profile-result strong{font-size:13px; font-weight:800; white-space:nowrap;}
+.candidate-profile-result span{font-family:'Sora',sans-serif; font-size:17px; color:var(--teal); font-weight:800;}
+.candidate-vote-option{position:relative; display:block; margin:8px 0; cursor:pointer;}
+.candidate-vote-option>input{position:absolute; top:14px; right:14px; z-index:2; width:18px; height:18px; accent-color:var(--teal);}
+.candidate-vote-option .candidate-profile-card{padding-right:44px;}
+.candidate-vote-option:has(input:checked) .candidate-profile-card{border-color:var(--teal); background:rgba(255,103,103,.1);}
 .candidate-list-name{font-weight:600; color:var(--ink); font-size:13.5px;}
 .candidate-list-slogan{font-size:12px; color:var(--muted); margin-top:2px;}
 .candidate-list-party{font-size:12px; color:var(--teal); font-weight:700; margin-top:3px;}
@@ -693,6 +727,10 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 @media (max-width:600px){
   .vote-fullscreen{padding:32px 16px;}
   .ballot-grid{grid-template-columns:1fr;}
+  .candidate-profile-card{grid-template-columns:60px minmax(0,1fr); gap:10px; padding:10px;}
+  .candidate-profile-photo{width:60px; height:60px;}
+  .candidate-profile-result{grid-column:1 / -1; flex-direction:row; justify-content:space-between; border-left:0; border-top:1px solid var(--line); padding-top:8px; min-height:0;}
+  .candidate-vote-option .candidate-profile-card{padding-right:38px;}
   .dashboard-header-row{align-items:stretch; flex-direction:column;}
   .status-card{text-align:center; width:100%;}
   .metric-card-grid{grid-template-columns:1fr;}

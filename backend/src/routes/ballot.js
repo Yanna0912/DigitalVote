@@ -36,14 +36,14 @@ router.get("/ballot", requireStudent, asyncHandler(async (req, res) => {
   }
   const { data: candidates, error } = await supabase
     .from("candidates")
-    .select("position, name, party, photo")
+    .select("position, name, id_no, block, party, photo")
     .order("position", { ascending: true });
   if (error) return res.status(500).json({ error: "Couldn't load the ballot." });
 
   const byPosition = {};
   for (const c of candidates) {
     if (!byPosition[c.position]) byPosition[c.position] = [];
-    byPosition[c.position].push({ name: c.name, party: c.party, photo: c.photo });
+    byPosition[c.position].push({ name: c.name, id_no: c.id_no, block: c.block, party: c.party, photo: c.photo });
   }
   const ballot = Object.entries(byPosition).map(([position, list]) => ({ position, candidates: list }));
   return res.json({ ballot });

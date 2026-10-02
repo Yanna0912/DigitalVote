@@ -70,6 +70,8 @@ create table if not exists candidates (
   id          uuid primary key default gen_random_uuid(),
   position    text not null,
   name        text not null,
+  id_no       text,
+  block       text,
   party       text,
   photo       text,
   created_at  timestamptz not null default now()
@@ -145,6 +147,8 @@ alter table students drop column if exists course;
 alter table admins add column if not exists party_list text;
 alter table candidates add column if not exists party text;
 alter table candidates add column if not exists photo text;
+alter table candidates add column if not exists id_no text;
+alter table candidates add column if not exists block text;
 update candidates set party = slogan where party is null and slogan is not null;
 alter table candidates drop column if exists slogan;
 

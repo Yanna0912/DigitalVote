@@ -58,6 +58,15 @@ router.get("/students", asyncHandler(async (_req, res) => {
   res.json({ students: data.map((student) => ({ ...student, name: studentDisplayName(student) })) });
 }));
 
+router.get("/students/pending", asyncHandler(async (_req, res) => {
+  const { data, error } = await supabase.from("students")
+    .select("id_no, first_name, last_name, suffix, block, email, id_photo, approval_status, created_at")
+    .eq("approval_status", "pending")
+    .order("created_at", { ascending: true });
+  if (error) return res.status(500).json({ error: "Couldn't load pending registrations." });
+  res.json({ students: data.map((student) => ({ ...student, name: studentDisplayName(student) })) });
+}));
+
 router.post("/students/:id_no/approve", asyncHandler(async (req, res) => {
   const { data: student, error: lookupError } = await supabase.from("students").select("*").eq("id_no", req.params.id_no).maybeSingle();
   if (lookupError) return res.status(500).json({ error: "Couldn't load that registration." });
@@ -185,11 +194,16 @@ router.get("/candidates", asyncHandler(async (_req, res) => {
 router.post("/candidates", asyncHandler(async (req, res) => {
   const position = String(req.body.position || "").trim();
   const name = String(req.body.name || "").trim();
+  const id_no = String(req.body.id_no || "").trim();
+  const block = String(req.body.block || "").trim();
   const party = String(req.body.party || "").trim();
   const photo = String(req.body.photo || "").trim();
   if (!position || !name) return res.status(400).json({ error: "Position and candidate name are required." });
+  if (photo && (!/^data:image\/(jpeg|png|webp);base64,/.test(photo) || photo.length > 5_500_000)) {
+    return res.status(400).json({ error: "Candidate photo must be a JPG, PNG, or WebP image smaller than 4 MB." });
+  }
 
-  const { error } = await supabase.from("candidates").insert({ position, name, party: party || null, photo: photo || null });
+  const { error } = await supabase.from("candidates").insert({ position, name, id_no: id_no || null, block: block || null, party: party || null, photo: photo || null });
   if (error) return res.status(500).json({ error: "Couldn't add that candidate." });
   res.json({ status: "added" });
 }));
@@ -200,7 +214,7 @@ router.delete("/candidates/:id", asyncHandler(async (req, res) => {
 
 /* ---------------------------- results ---------------------------- */
 router.get("/results", asyncHandler(async (_req, res) => {
-  const { data: candidates, error: candError } = await supabase.from("candidates").select("position, name");
+  const { data: candidates, error: candError } = await supabase.from("candidates").select("position, name, id_no, block, party, photo");
   if (candError) return res.status(500).json({ error: "Couldn't load candidates." });
 
   const { data: votes, error: voteError } = await supabase.from("votes").select("position, candidate_name");
@@ -215,7 +229,7 @@ router.get("/results", asyncHandler(async (_req, res) => {
   const byPosition = {};
   for (const c of candidates) {
     if (!byPosition[c.position]) byPosition[c.position] = [];
-    byPosition[c.position].push({ name: c.name, votes: tally[`${c.position}::${c.name}`] || 0 });
+    byPosition[c.position].push({ ...c, votes: tally[`${c.position}::${c.name}`] || 0 });
   }
   const results = Object.entries(byPosition).map(([position, list]) => ({ position, candidates: list }));
   res.json({ results });

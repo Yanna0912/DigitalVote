@@ -18,6 +18,7 @@ async function api(path, { method = "GET", body, token } = {}) {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      cache: "no-store",
     });
   } catch (_networkErr) {
     throw { error: "Can't reach the server. Check your connection and try again." };
@@ -87,6 +88,22 @@ function timeStamp(d) {
 function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
+}
+function candidateProfileMarkup(candidate, result = null) {
+  const initials = String(candidate.name || "?").split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase();
+  return `
+    <div class="candidate-profile-card">
+      <div class="candidate-profile-photo">
+        ${candidate.photo ? `<img src="${candidate.photo}" alt="${escapeHtml(candidate.name)}">` : `<span>${escapeHtml(initials)}</span>`}
+      </div>
+      <div class="candidate-profile-info">
+        <strong>${escapeHtml(candidate.name)}</strong>
+        <span>Block: ${escapeHtml(candidate.block || "Not listed")}</span>
+        <span>ID: ${escapeHtml(candidate.id_no || "Not listed")}</span>
+        ${candidate.party ? `<span class="candidate-profile-party">${escapeHtml(candidate.party)}</span>` : ""}
+      </div>
+      ${result ? `<div class="candidate-profile-result"><strong>${result.votes} vote${result.votes === 1 ? "" : "s"}</strong><span>${result.percent}%</span></div>` : ""}
+    </div>`;
 }
 function fileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -379,9 +396,9 @@ async function renderVoteStep() {
     <fieldset class="race" data-position="${race.position}">
       <legend class="eyebrow" style="margin-bottom:8px;">${race.position}</legend>
       ${race.candidates.map((c) => `
-        <label class="candidate-row">
-          <input type="radio" name="race-${ri}" value="${c.name}">
-          <span>${c.name}${c.party ? `<br><small style="color:var(--muted); font-weight:400;">${c.party}</small>` : ""}</span>
+        <label class="candidate-vote-option">
+          <input type="radio" name="race-${ri}" value="${escapeHtml(c.name)}">
+          ${candidateProfileMarkup(c)}
         </label>`).join("")}
     </fieldset>`).join("");
 
@@ -564,6 +581,7 @@ function openAdminDashboard(admin) {
   document.getElementById("adminWho").textContent = `${admin.name} \u00b7 ${admin.email}`;
   switchAdminTab("dashboard");
   refreshAll();
+  startPendingRegistrationsPolling();
 }
 function refreshAll() {
   renderStatRow();
@@ -576,6 +594,7 @@ function refreshAll() {
   renderAdminList();
 }
 document.getElementById("adminLogout").onclick = () => {
+  stopPendingRegistrationsPolling();
   adminSection.classList.add("hidden");
   publicPage.classList.remove("hidden");
   voterSection.classList.remove("hidden");
@@ -622,15 +641,19 @@ async function renderStatRow() {
       <span class="status-toggle-label">Click to ${open ? "close" : "open"} voting</span>
     </button>`;
 
-  const chartTotal = Math.max(1, stats.pending + stats.registeredNotVoted + stats.voted);
+  const chartTotal = Math.max(1, stats.total);
   const pendingAngle = (stats.pending / chartTotal) * 360;
   const credentialAngle = pendingAngle + (stats.registeredNotVoted / chartTotal) * 360;
-  document.getElementById("participationChart").style.background = `conic-gradient(var(--red) 0deg ${pendingAngle}deg, var(--blue-light) ${pendingAngle}deg ${credentialAngle}deg, var(--success) ${credentialAngle}deg 360deg)`;
+  const votedAngle = credentialAngle + (stats.voted / chartTotal) * 360;
+  const notRegistered = Math.max(0, stats.total - stats.pending - stats.registeredNotVoted - stats.voted);
+  document.getElementById("participationChart").style.background = `conic-gradient(var(--red) 0deg ${pendingAngle}deg, var(--blue-light) ${pendingAngle}deg ${credentialAngle}deg, var(--success) ${credentialAngle}deg ${votedAngle}deg, rgba(255,255,255,.16) ${votedAngle}deg 360deg)`;
+  document.getElementById("participationChart").innerHTML = `<span class="participation-chart-center"><strong>${Math.round((stats.voted / chartTotal) * 100)}%</strong><small>voted</small></span>`;
   document.getElementById("participationLegend").innerHTML = [
     ["Pending approval", stats.pending, "var(--red)"],
     ["Credentials issued", stats.registeredNotVoted, "var(--blue-light)"],
     ["Voted", stats.voted, "var(--success)"],
-  ].map(([label, value, color]) => `<div class="legend-item"><span class="legend-dot" style="background:${color}"></span><strong>${label}</strong><span>${value}</span></div>`).join("");
+    ["Not registered", notRegistered, "rgba(255,255,255,.4)"],
+  ].map(([label, value, color]) => `<div class="legend-item"><span class="legend-dot" style="background:${color}"></span><strong>${label}</strong><span>${Math.round((value / chartTotal) * 100)}% <small>(${value})</small></span></div>`).join("");
 
   document.getElementById("statusCard").onclick = async () => {
     try {
@@ -661,15 +684,10 @@ async function renderResultsPanel() {
     return `
       <div class="results-row">
         <h4 class="results-position">${race.position}</h4>
-        ${race.candidates.map((c) => `
-          <div class="result-candidate">
-            <div class="result-candidate-main">
-              <span class="result-candidate-name">${c.name}</span>
-              <strong class="result-candidate-votes">${c.votes} vote${c.votes === 1 ? "" : "s"}</strong>
-            </div>
-            <div class="result-candidate-percent">${totalVotes ? Math.round((c.votes / totalVotes) * 100) : 0}%</div>
-          </div>
-        `).join("")}
+        ${race.candidates.map((candidate) => candidateProfileMarkup(candidate, {
+          votes: candidate.votes,
+          percent: totalVotes ? Math.round((candidate.votes / totalVotes) * 100) : 0,
+        })).join("")}
       </div>`;
   }).join("");
 }
@@ -677,6 +695,8 @@ async function renderResultsPanel() {
 /* ---- students: per-block summary cards + collapsible full roster ---- */
 let cachedRoster = [];
 let selectedRosterBlock = null;
+let pendingRegistrationsPoll = null;
+let pendingRegistrationsLoading = false;
 async function renderBlockGrid() {
   try {
     const data = await api("/admin/students", { token: adminToken });
@@ -771,10 +791,11 @@ async function renderRosterTable() {
 
 async function renderPendingRegistrations() {
   const list = document.getElementById("pendingRegistrationsList");
-  if (!list) return;
+  if (!list || !adminToken || pendingRegistrationsLoading) return;
+  pendingRegistrationsLoading = true;
   try {
-    const data = await api("/admin/students", { token: adminToken });
-    const pending = (data.students || []).filter((student) => student.approval_status === "pending");
+    const data = await api("/admin/students/pending", { token: adminToken });
+    const pending = data.students || [];
     if (!pending.length) {
       list.innerHTML = `<p class="panel-note">No registrations are waiting for review.</p>`;
       return;
@@ -834,7 +855,27 @@ async function renderPendingRegistrations() {
     });
   } catch (_err) {
     list.innerHTML = `<p class="error-text">Couldn't load pending registrations.</p>`;
+  } finally {
+    pendingRegistrationsLoading = false;
   }
+}
+
+function startPendingRegistrationsPolling() {
+  if (pendingRegistrationsPoll) return;
+  renderPendingRegistrations();
+  pendingRegistrationsPoll = setInterval(() => {
+    if (!adminToken || adminSection.classList.contains("hidden")) {
+      stopPendingRegistrationsPolling();
+      return;
+    }
+    renderPendingRegistrations();
+  }, 3000);
+}
+
+function stopPendingRegistrationsPolling() {
+  if (!pendingRegistrationsPoll) return;
+  clearInterval(pendingRegistrationsPoll);
+  pendingRegistrationsPoll = null;
 }
 
 /* Add Student modal (manual add + CSV import) */
@@ -904,8 +945,23 @@ async function renderCandidateList() {
   const el = document.getElementById("candidateList");
   let candidates;
   try {
-    const data = await api("/admin/candidates", { token: adminToken });
-    candidates = data.candidates || [];
+    const [candidateData, resultData] = await Promise.all([
+      api("/admin/candidates", { token: adminToken }),
+      api("/admin/results", { token: adminToken }),
+    ]);
+    candidates = candidateData.candidates || [];
+    const resultsByCandidate = new Map();
+    (resultData.results || []).forEach((race) => {
+      const raceVotes = race.candidates.reduce((sum, candidate) => sum + candidate.votes, 0);
+      race.candidates.forEach((candidate) => resultsByCandidate.set(`${race.position}::${candidate.name}`, {
+        votes: candidate.votes,
+        percent: raceVotes ? Math.round((candidate.votes / raceVotes) * 100) : 0,
+      }));
+    });
+    candidates = candidates.map((candidate) => ({
+      ...candidate,
+      result: resultsByCandidate.get(`${candidate.position}::${candidate.name}`) || { votes: 0, percent: 0 },
+    }));
   } catch (_err) {
     el.innerHTML = `<p class="error-text">Couldn't load candidates.</p>`;
     return;
@@ -924,11 +980,7 @@ async function renderCandidateList() {
       <p class="candidate-position-title">${position}</p>
       ${list.map((c) => `
         <div class="candidate-list-row">
-          <div>
-            <div class="candidate-list-name">${c.name}</div>
-            ${c.party ? `<div class="candidate-list-party">${c.party}</div>` : ""}
-          </div>
-          ${c.photo ? `<img class="candidate-list-photo" src="${c.photo}" alt="${escapeHtml(c.name)}">` : ""}
+          ${candidateProfileMarkup(c, c.result)}
         </div>`).join("")}
     </div>`).join("");
 }
@@ -939,14 +991,18 @@ document.getElementById("closeAddCandidateModal").onclick = () => addCandidateOv
 document.getElementById("addCandidateBtn").onclick = async () => {
   const position = document.getElementById("candPosition").value.trim();
   const name = document.getElementById("candName").value.trim();
+  const id_no = document.getElementById("candIdNo").value.trim();
+  const block = document.getElementById("candBlock").value.trim();
   const party = document.getElementById("candParty").value.trim();
   const photoFile = document.getElementById("candPhoto").files[0];
   if (!position || !name) return;
   try {
     const photo = photoFile ? await fileAsDataUrl(photoFile) : "";
-    await api("/admin/candidates", { method: "POST", token: adminToken, body: { position, name, party, photo } });
+    await api("/admin/candidates", { method: "POST", token: adminToken, body: { position, name, id_no, block, party, photo } });
     document.getElementById("candPosition").value = "";
     document.getElementById("candName").value = "";
+    document.getElementById("candIdNo").value = "";
+    document.getElementById("candBlock").value = "";
     document.getElementById("candParty").value = "";
     document.getElementById("candPhoto").value = "";
     renderCandidateList(); renderResultsPanel();
