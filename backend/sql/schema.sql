@@ -149,7 +149,15 @@ alter table candidates add column if not exists party text;
 alter table candidates add column if not exists photo text;
 alter table candidates add column if not exists id_no text;
 alter table candidates add column if not exists block text;
-update candidates set party = slogan where party is null and slogan is not null;
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'candidates' and column_name = 'slogan'
+  ) then
+    execute 'update public.candidates set party = slogan where party is null and slogan is not null';
+  end if;
+end $$;
 alter table candidates drop column if exists slogan;
 
 do $$

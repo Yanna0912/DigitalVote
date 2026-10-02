@@ -188,7 +188,13 @@ router.delete("/students/:id_no", asyncHandler(async (req, res) => {
 router.get("/candidates", asyncHandler(async (_req, res) => {
   const { data, error } = await supabase.from("candidates").select("*").order("position", { ascending: true });
   if (error) return res.status(500).json({ error: "Couldn't load candidates." });
-  res.json({ candidates: data });
+  res.json({ candidates: data.map((candidate) => ({
+    ...candidate,
+    party: candidate.party || candidate.slogan || null,
+    id_no: candidate.id_no || null,
+    block: candidate.block || null,
+    photo: candidate.photo || null,
+  })) });
 }));
 
 router.post("/candidates", asyncHandler(async (req, res) => {
@@ -214,7 +220,7 @@ router.delete("/candidates/:id", asyncHandler(async (req, res) => {
 
 /* ---------------------------- results ---------------------------- */
 router.get("/results", asyncHandler(async (_req, res) => {
-  const { data: candidates, error: candError } = await supabase.from("candidates").select("position, name, id_no, block, party, photo");
+  const { data: candidates, error: candError } = await supabase.from("candidates").select("*");
   if (candError) return res.status(500).json({ error: "Couldn't load candidates." });
 
   const { data: votes, error: voteError } = await supabase.from("votes").select("position, candidate_name");
@@ -229,7 +235,14 @@ router.get("/results", asyncHandler(async (_req, res) => {
   const byPosition = {};
   for (const c of candidates) {
     if (!byPosition[c.position]) byPosition[c.position] = [];
-    byPosition[c.position].push({ ...c, votes: tally[`${c.position}::${c.name}`] || 0 });
+    byPosition[c.position].push({
+      ...c,
+      party: c.party || c.slogan || null,
+      id_no: c.id_no || null,
+      block: c.block || null,
+      photo: c.photo || null,
+      votes: tally[`${c.position}::${c.name}`] || 0,
+    });
   }
   const results = Object.entries(byPosition).map(([position, list]) => ({ position, candidates: list }));
   res.json({ results });

@@ -944,28 +944,33 @@ document.getElementById("importCsvBtn").onclick = async () => {
 async function renderCandidateList() {
   const el = document.getElementById("candidateList");
   let candidates;
+  let results = [];
+  let resultsUnavailable = false;
   try {
-    const [candidateData, resultData] = await Promise.all([
-      api("/admin/candidates", { token: adminToken }),
-      api("/admin/results", { token: adminToken }),
-    ]);
+    const candidateData = await api("/admin/candidates", { token: adminToken });
     candidates = candidateData.candidates || [];
-    const resultsByCandidate = new Map();
-    (resultData.results || []).forEach((race) => {
-      const raceVotes = race.candidates.reduce((sum, candidate) => sum + candidate.votes, 0);
-      race.candidates.forEach((candidate) => resultsByCandidate.set(`${race.position}::${candidate.name}`, {
-        votes: candidate.votes,
-        percent: raceVotes ? Math.round((candidate.votes / raceVotes) * 100) : 0,
-      }));
-    });
-    candidates = candidates.map((candidate) => ({
-      ...candidate,
-      result: resultsByCandidate.get(`${candidate.position}::${candidate.name}`) || { votes: 0, percent: 0 },
-    }));
   } catch (_err) {
     el.innerHTML = `<p class="error-text">Couldn't load candidates.</p>`;
     return;
   }
+  try {
+    const resultData = await api("/admin/results", { token: adminToken });
+    results = resultData.results || [];
+  } catch (_err) {
+    resultsUnavailable = true;
+  }
+  const resultsByCandidate = new Map();
+  results.forEach((race) => {
+    const raceVotes = race.candidates.reduce((sum, candidate) => sum + candidate.votes, 0);
+    race.candidates.forEach((candidate) => resultsByCandidate.set(`${race.position}::${candidate.name}`, {
+      votes: candidate.votes,
+      percent: raceVotes ? Math.round((candidate.votes / raceVotes) * 100) : 0,
+    }));
+  });
+  candidates = candidates.map((candidate) => ({
+    ...candidate,
+    result: resultsByCandidate.get(`${candidate.position}::${candidate.name}`) || { votes: 0, percent: 0 },
+  }));
   if (!candidates.length) {
     el.innerHTML = `<p class="panel-note">No candidates yet. Use "Add Candidates" to get started.</p>`;
     return;
@@ -975,7 +980,7 @@ async function renderCandidateList() {
     if (!byPosition[c.position]) byPosition[c.position] = [];
     byPosition[c.position].push(c);
   });
-  el.innerHTML = Object.entries(byPosition).map(([position, list]) => `
+  el.innerHTML = `${resultsUnavailable ? `<p class="panel-note">Candidate profiles are available, but vote totals couldn't be loaded.</p>` : ""}` + Object.entries(byPosition).map(([position, list]) => `
     <div class="candidate-position-group">
       <p class="candidate-position-title">${position}</p>
       ${list.map((c) => `
