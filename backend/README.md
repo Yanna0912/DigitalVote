@@ -19,8 +19,23 @@ open/closed switch), and CSV roster import.
 
 ## 2. Set up outgoing email
 
-Resend is supported directly and is preferred for deployed use. Add these
-variables to Render (and local `.env` when testing locally):
+Mailjet SMTP and Resend are supported. To use Mailjet, add these variables
+to Render (and local `.env` when testing locally):
+
+```
+EMAIL_PROVIDER=mailjet
+MAILJET_API_KEY=your-mailjet-api-key
+MAILJET_SECRET_KEY=your-mailjet-secret-key
+MAILJET_SMTP_HOST=in-v3.mailjet.com
+MAILJET_SMTP_PORT=587
+MAILJET_SMTP_SECURE=false
+MAIL_FROM=CCDI Election Portal <verified-sender@your-domain.com>
+```
+
+The sender address/domain must be verified in Mailjet. Mailjet uses its API
+key as the SMTP username and its secret key as the SMTP password.
+
+To use Resend instead, set `EMAIL_PROVIDER=resend` and configure:
 
 ```
 RESEND_API_KEY=re_...

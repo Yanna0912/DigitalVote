@@ -23,6 +23,18 @@ services:
         sync: false
       - key: SMTP_PASS
         sync: false
+      - key: EMAIL_PROVIDER
+        value: mailjet
+      - key: MAILJET_API_KEY
+        sync: false
+      - key: MAILJET_SECRET_KEY
+        sync: false
+      - key: MAILJET_SMTP_HOST
+        value: in-v3.mailjet.com
+      - key: MAILJET_SMTP_PORT
+        value: "587"
+      - key: MAILJET_SMTP_SECURE
+        value: "false"
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM

@@ -10,6 +10,10 @@ if (dns.setDefaultResultOrder) {
 let transporter = null;
 let resendClient = null;
 
+function selectedEmailProvider() {
+  return String(process.env.EMAIL_PROVIDER || "resend").trim().toLowerCase();
+}
+
 function getResendClient() {
   if (resendClient) return resendClient;
   if (!process.env.RESEND_API_KEY) return null;
@@ -19,22 +23,28 @@ function getResendClient() {
 
 function getTransporter() {
   if (transporter) return transporter;
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+  const useMailjet = selectedEmailProvider() === "mailjet";
+  const host = useMailjet ? (process.env.MAILJET_SMTP_HOST || "in-v3.mailjet.com") : process.env.SMTP_HOST;
+  const user = useMailjet ? process.env.MAILJET_API_KEY : process.env.SMTP_USER;
+  const pass = useMailjet ? process.env.MAILJET_SECRET_KEY : process.env.SMTP_PASS;
+  if (!host || !user || !pass) {
     return null;
   }
   try {
     transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT || 2587),
-      secure: String(process.env.SMTP_SECURE || "true") === "true",
+      host,
+      port: Number(useMailjet ? (process.env.MAILJET_SMTP_PORT || 587) : (process.env.SMTP_PORT || 2587)),
+      secure: useMailjet
+        ? String(process.env.MAILJET_SMTP_SECURE || "false") === "true"
+        : String(process.env.SMTP_SECURE || "true") === "true",
       family: 4,
       // Custom lookup wrapper to strictly force IPv4 resolution
       lookup: (hostname, options, callback) => {
         dns.lookup(hostname, { family: 4 }, callback);
       },
       auth: {
-        user: process.env.SMTP_USER.trim(),
-        pass: process.env.SMTP_PASS.replace(/\s/g, ""),
+        user: user.trim(),
+        pass: pass.replace(/\s/g, ""),
       },
     });
     return transporter;
@@ -53,7 +63,8 @@ function getTransporter() {
 async function sendMail({ to, subject, html, text }) {
   const resend = getResendClient();
   let resendError = null;
-  if (resend) {
+  const provider = selectedEmailProvider();
+  if (provider !== "mailjet" && provider !== "smtp" && resend) {
     try {
       const { data, error } = await resend.emails.send({
         from: process.env.RESEND_FROM || "onboarding@resend.dev",
@@ -85,7 +96,9 @@ async function sendMail({ to, subject, html, text }) {
     return {
       delivered: false,
       reason: resendError ? "providers_failed" : "not_configured",
-      error: resendError || "No email provider is configured.",
+      error: resendError || (provider === "mailjet"
+        ? "Mailjet is selected but MAILJET_API_KEY or MAILJET_SECRET_KEY is missing."
+        : "No email provider is configured."),
     };
   }
   try {
@@ -96,7 +109,7 @@ async function sendMail({ to, subject, html, text }) {
       html,
       text,
     });
-    return { delivered: true };
+    return { delivered: true, provider: provider === "mailjet" ? "mailjet" : "smtp" };
   } catch (err) {
     // A bad SMTP password/host, or the provider rejecting the message,
     // should degrade to the dev-preview fallback — not 500 the request.
