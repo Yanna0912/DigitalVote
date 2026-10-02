@@ -34,6 +34,10 @@ MAIL_FROM=CCDI Election Portal <verified-sender@your-domain.com>
 
 The sender address/domain must be verified in Mailjet. Mailjet uses its API
 key as the SMTP username and its secret key as the SMTP password.
+When both Mailjet credential variables are present, the backend selects
+Mailjet automatically unless `EMAIL_PROVIDER` explicitly selects another
+provider. OTP and approval emails are triggered by the existing login and
+admin-approval actions.
 
 To use Resend instead, set `EMAIL_PROVIDER=resend` and configure:
 

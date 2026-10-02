@@ -11,7 +11,11 @@ let transporter = null;
 let resendClient = null;
 
 function selectedEmailProvider() {
-  return String(process.env.EMAIL_PROVIDER || "resend").trim().toLowerCase();
+  const configuredProvider = String(process.env.EMAIL_PROVIDER || "").trim().toLowerCase();
+  if (configuredProvider) return configuredProvider;
+  if (process.env.MAILJET_API_KEY && process.env.MAILJET_SECRET_KEY) return "mailjet";
+  if (process.env.RESEND_API_KEY) return "resend";
+  return "smtp";
 }
 
 function getResendClient() {
@@ -102,6 +106,7 @@ async function sendMail({ to, subject, html, text }) {
     };
   }
   try {
+    
     await t.sendMail({
       from: process.env.MAIL_FROM || process.env.SMTP_USER,
       to,
