@@ -37,7 +37,7 @@ function getTransporter() {
   try {
     transporter = nodemailer.createTransport({
       host,
-      port: Number(useMailjet ? (process.env.MAILJET_SMTP_PORT || 587) : (process.env.SMTP_PORT || 2587)),
+      port: Number(useMailjet ? (process.env.MAILJET_SMTP_PORT || 465) : (process.env.SMTP_PORT || 465)),
       secure: useMailjet
         ? String(process.env.MAILJET_SMTP_SECURE || "false") === "true"
         : String(process.env.SMTP_SECURE || "true") === "true",
