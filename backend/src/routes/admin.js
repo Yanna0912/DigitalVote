@@ -62,31 +62,55 @@ router.post("/students/:id_no/approve", asyncHandler(async (req, res) => {
   const { data: student, error: lookupError } = await supabase.from("students").select("*").eq("id_no", req.params.id_no).maybeSingle();
   if (lookupError) return res.status(500).json({ error: "Couldn't load that registration." });
   if (!student) return res.status(404).json({ error: "Student registration not found." });
-  if (student.registered || student.approval_status === "approved") return res.status(409).json({ error: "That registration is already approved." });
+  if (student.registered || student.approval_status !== "pending") return res.status(409).json({ error: "That registration is not waiting for approval." });
   if (!student.email) return res.status(400).json({ error: "The registration has no email address." });
 
   const displayName = studentDisplayName(student);
   const username = genUsername(displayName, student.id_no);
   const plainPassword = genPassword();
   const password_hash = await bcrypt.hash(plainPassword, 10);
-  const { error: updateError } = await supabase.from("students").update({
+  const { data: approvedStudent, error: updateError } = await supabase.from("students").update({
     username, password_hash, registered: true, registered_at: new Date().toISOString(),
     approval_status: "approved", approval_note: null,
-  }).eq("id_no", req.params.id_no);
+  }).eq("id_no", req.params.id_no).eq("approval_status", "pending").eq("registered", false).select("id_no").maybeSingle();
   if (updateError) return res.status(500).json({ error: "Couldn't approve that registration." });
+  if (!approvedStudent) return res.status(409).json({ error: "That registration has already been processed." });
 
   const credentialMail = studentCredentialsEmail({ name: displayName, username, password: plainPassword });
-  sendMail({ to: student.email, ...credentialMail }).then((result) => {
-    if (!result.delivered) {
-      console.error(`[mailer] Approval email was not delivered to ${student.email}: ${result.reason || "unknown error"}`);
-    }
-  }).catch((error) => {
-    console.error(`[mailer] Approval email failed for ${student.email}:`, error.message);
-  });
+  const mailResult = await sendMail({ to: student.email, ...credentialMail });
   res.json({
     status: "approved",
-    emailed: null,
-    message: `Approved. Voting credentials are being sent to ${student.email}.`,
+    emailed: mailResult.delivered,
+    message: mailResult.delivered
+      ? `Approved. Credentials were sent to ${student.email}.`
+      : `Approved, but the email could not be sent to ${student.email}. Use Resend credentials from the roster after checking the email configuration.`,
+  });
+}));
+
+router.post("/students/:id_no/resend-credentials", asyncHandler(async (req, res) => {
+  const { data: student, error: lookupError } = await supabase.from("students").select("*").eq("id_no", req.params.id_no).maybeSingle();
+  if (lookupError) return res.status(500).json({ error: "Couldn't load that student." });
+  if (!student || !student.registered || student.approval_status !== "approved") {
+    return res.status(409).json({ error: "Credentials can only be resent for an approved student." });
+  }
+  if (!student.email) return res.status(400).json({ error: "The student has no saved email address." });
+
+  const displayName = studentDisplayName(student);
+  const plainPassword = genPassword();
+  const password_hash = await bcrypt.hash(plainPassword, 10);
+  const { error: updateError } = await supabase.from("students").update({ password_hash }).eq("id_no", student.id_no);
+  if (updateError) return res.status(500).json({ error: "Couldn't refresh the student's password." });
+
+  const mailResult = await sendMail({
+    to: student.email,
+    ...studentCredentialsEmail({ name: displayName, username: student.username, password: plainPassword }),
+  });
+  res.json({
+    status: mailResult.delivered ? "sent" : "failed",
+    emailed: mailResult.delivered,
+    message: mailResult.delivered
+      ? `New credentials were sent to ${student.email}.`
+      : `Email delivery failed for ${student.email}. Check the Resend/SMTP configuration and retry.`,
   });
 }));
 
@@ -161,10 +185,11 @@ router.get("/candidates", asyncHandler(async (_req, res) => {
 router.post("/candidates", asyncHandler(async (req, res) => {
   const position = String(req.body.position || "").trim();
   const name = String(req.body.name || "").trim();
-  const slogan = String(req.body.slogan || "").trim();
+  const party = String(req.body.party || "").trim();
+  const photo = String(req.body.photo || "").trim();
   if (!position || !name) return res.status(400).json({ error: "Position and candidate name are required." });
 
-  const { error } = await supabase.from("candidates").insert({ position, name, slogan: slogan || null });
+  const { error } = await supabase.from("candidates").insert({ position, name, party: party || null, photo: photo || null });
   if (error) return res.status(500).json({ error: "Couldn't add that candidate." });
   res.json({ status: "added" });
 }));
@@ -198,7 +223,7 @@ router.get("/results", asyncHandler(async (_req, res) => {
 
 /* ---------------------------- admin accounts ---------------------------- */
 router.get("/admins", asyncHandler(async (_req, res) => {
-  const { data, error } = await supabase.from("admins").select("id, name, email, username, created_at").order("created_at");
+  const { data, error } = await supabase.from("admins").select("id, name, email, username, party_list, created_at").order("created_at");
   if (error) return res.status(500).json({ error: "Couldn't load admin accounts." });
   res.json({ admins: data });
 }));
@@ -206,6 +231,7 @@ router.get("/admins", asyncHandler(async (_req, res) => {
 router.post("/admins", asyncHandler(async (req, res) => {
   const name = String(req.body.name || "").trim();
   const email = String(req.body.email || "").trim();
+  const party_list = String(req.body.party_list || "").trim();
   const username = String(req.body.username || "").trim();
   const password = String(req.body.password || "");
   if (!name || !email || !username || !password) return res.status(400).json({ error: "Please fill in every field." });
@@ -216,7 +242,7 @@ router.post("/admins", asyncHandler(async (req, res) => {
   if (existing) return res.status(409).json({ error: "That username is already taken." });
 
   const password_hash = await bcrypt.hash(password, 10);
-  const { error } = await supabase.from("admins").insert({ name, email, username, password_hash });
+  const { error } = await supabase.from("admins").insert({ name, email, party_list: party_list || null, username, password_hash });
   if (error) return res.status(500).json({ error: "Couldn't add that admin." });
   res.json({ status: "added" });
 }));

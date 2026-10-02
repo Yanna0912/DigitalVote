@@ -9,10 +9,10 @@ Supabase through the API.
 
 Edit `config.js`:
 ```js
-window.CCDI_API_BASE = "https://your-backend.onrender.com/api";
+window.CCDI_API_BASE = "http://localhost:4000/api";
 ```
-Defaults to `http://localhost:4000/api` for local development against a
-locally-running backend.
+For production, replace it with your deployed backend URL, such as
+`https://your-backend.onrender.com/api`.
 
 ## Run locally
 

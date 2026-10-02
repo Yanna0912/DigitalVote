@@ -5,7 +5,7 @@
    backend URL in config.js before deploying.
    ========================================================================= */
 
-const API_BASE ="https://digitalvote.onrender.com/api"; // default to Render deployment if not set in config.js
+const API_BASE = (window.CCDI_API_BASE || "http://localhost:4000/api").replace(/\/$/, "");
 
 /* ---------------- tiny API client ---------------- */
 async function api(path, { method = "GET", body, token } = {}) {
@@ -87,6 +87,14 @@ function timeStamp(d) {
 function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]);
+}
+function fileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 /* ---------------- DOM refs ---------------- */
@@ -216,6 +224,7 @@ async function submitRegistration() {
 
 document.getElementById("registrationClose").onclick = () => registrationOverlay.classList.remove("show");
 document.getElementById("submitRegistration").onclick = submitRegistration;
+document.getElementById("otpClose").onclick = () => otpOverlay.classList.remove("show");
 [
   document.getElementById("registrationPhotoCamera"),
   document.getElementById("registrationPhotoUpload"),
@@ -369,7 +378,7 @@ async function renderVoteStep() {
       ${race.candidates.map((c) => `
         <label class="candidate-row">
           <input type="radio" name="race-${ri}" value="${c.name}">
-          <span>${c.name}${c.slogan ? `<br><small style="color:var(--muted); font-weight:400;">${c.slogan}</small>` : ""}</span>
+          <span>${c.name}${c.party ? `<br><small style="color:var(--muted); font-weight:400;">${c.party}</small>` : ""}</span>
         </label>`).join("")}
     </fieldset>`).join("");
 
@@ -730,8 +739,29 @@ async function renderRosterTable() {
     ? visibleRoster.map((s) => `
       <tr>
         <td>${s.id_no}</td><td>${s.name}</td><td>${s.block || "&mdash;"}</td><td>${s.email || "&mdash;"}</td>
+        <td>
+          <span class="status-pill ${s.registered ? "yes" : "no"}">${s.registered ? "Issued" : "Not issued"}</span>
+          ${s.registered ? `<button class="roster-resend-btn" data-resend-credentials="${encodeURIComponent(s.id_no)}" type="button">Resend</button>` : ""}
+        </td>
+        <td><span class="status-pill ${s.voted ? "yes" : "no"}">${s.voted ? "Yes" : "No"}</span></td>
       </tr>`).join("")
-    : `<tr><td colspan="4" class="table-empty">No students yet.</td></tr>`;
+    : `<tr><td colspan="6" class="table-empty">No students yet.</td></tr>`;
+
+  tbody.querySelectorAll("[data-resend-credentials]").forEach((button) => {
+    button.onclick = async () => {
+      button.disabled = true;
+      button.textContent = "Sending...";
+      try {
+        const result = await api(`/admin/students/${button.dataset.resendCredentials}/resend-credentials`, { method: "POST", token: adminToken });
+        alert(result.message);
+      } catch (err) {
+        alert(err.error || "Couldn't resend credentials.");
+      } finally {
+        button.disabled = false;
+        button.textContent = "Resend";
+      }
+    };
+  });
 }
 
 async function renderPendingRegistrations() {
@@ -773,8 +803,10 @@ async function renderPendingRegistrations() {
           if (!list.querySelector(".pending-registration")) {
             list.innerHTML = `<p class="panel-note">Saving approval...</p>`;
           }
-          await api(`/admin/students/${button.dataset.approveRegistration}/approve`, { method: "POST", token: adminToken });
+          const result = await api(`/admin/students/${button.dataset.approveRegistration}/approve`, { method: "POST", token: adminToken });
+          cachedRoster = [];
           renderPendingRegistrations(); renderRosterTable(); renderBlockGrid(); renderStatRow();
+          if (!result.emailed) alert(result.message);
         } catch (err) {
           renderPendingRegistrations();
           alert(err.error || "Couldn't approve that registration.");
@@ -889,8 +921,9 @@ async function renderCandidateList() {
         <div class="candidate-list-row">
           <div>
             <div class="candidate-list-name">${c.name}</div>
-            ${c.slogan ? `<div class="candidate-list-slogan">${c.slogan}</div>` : ""}
+            ${c.party ? `<div class="candidate-list-party">${c.party}</div>` : ""}
           </div>
+          ${c.photo ? `<img class="candidate-list-photo" src="${c.photo}" alt="${escapeHtml(c.name)}">` : ""}
         </div>`).join("")}
     </div>`).join("");
 }
@@ -901,13 +934,16 @@ document.getElementById("closeAddCandidateModal").onclick = () => addCandidateOv
 document.getElementById("addCandidateBtn").onclick = async () => {
   const position = document.getElementById("candPosition").value.trim();
   const name = document.getElementById("candName").value.trim();
-  const slogan = document.getElementById("candSlogan").value.trim();
+  const party = document.getElementById("candParty").value.trim();
+  const photoFile = document.getElementById("candPhoto").files[0];
   if (!position || !name) return;
   try {
-    await api("/admin/candidates", { method: "POST", token: adminToken, body: { position, name, slogan } });
+    const photo = photoFile ? await fileAsDataUrl(photoFile) : "";
+    await api("/admin/candidates", { method: "POST", token: adminToken, body: { position, name, party, photo } });
     document.getElementById("candPosition").value = "";
     document.getElementById("candName").value = "";
-    document.getElementById("candSlogan").value = "";
+    document.getElementById("candParty").value = "";
+    document.getElementById("candPhoto").value = "";
     renderCandidateList(); renderResultsPanel();
     addCandidateOverlay.classList.remove("show");
   } catch (err) { alert(err.error || "Couldn't add that candidate."); }
@@ -950,7 +986,8 @@ async function renderAdminList() {
           <div class="candidate-list-row">
             <div>
               <div class="candidate-list-name">${a.name}${isSelf ? ' <span class="status-pill yes">You</span>' : ""}</div>
-              <div class="candidate-list-slogan">${a.username} &middot; ${a.email}</div>
+              <div class="candidate-list-party">${a.username} &middot; ${a.email}</div>
+              ${a.party_list ? `<div class="candidate-list-slogan">Party list: ${escapeHtml(a.party_list)}</div>` : ""}
             </div>
           </div>`;
       }).join("")
@@ -969,11 +1006,12 @@ document.getElementById("addAdminBtn").onclick = async () => {
   errorEl.textContent = "";
   const name = document.getElementById("admName").value.trim();
   const email = document.getElementById("admEmail2").value.trim();
+  const party_list = document.getElementById("admPartyList").value.trim();
   const username = document.getElementById("admUsername2").value.trim();
   const password = document.getElementById("admPassword2").value;
   try {
-    await api("/admin/admins", { method: "POST", token: adminToken, body: { name, email, username, password } });
-    ["admName", "admEmail2", "admUsername2", "admPassword2"].forEach((id) => { document.getElementById(id).value = ""; });
+    await api("/admin/admins", { method: "POST", token: adminToken, body: { name, email, party_list, username, password } });
+    ["admName", "admEmail2", "admPartyList", "admUsername2", "admPassword2"].forEach((id) => { document.getElementById(id).value = ""; });
     renderAdminList();
     addAdminOverlay.classList.remove("show");
   } catch (err) {

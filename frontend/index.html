@@ -45,7 +45,7 @@
     </div>
 
     <main class="stage">
-      <p class="hint">Please double check your email before proceeding.</p>
+      <p class="hint">Please register to get your voting credentials.</p>
 
     </main>
 
@@ -118,7 +118,7 @@
           <details class="roster-details">
             <summary>Full roster <span id="rosterFilterLabel"></span> (<span id="rosterCount">0</span>)</summary>
             <table class="dark-table" id="rosterTable">
-              <thead><tr><th>Student ID</th><th>Name</th><th>Block</th><th>Email</th></tr></thead>
+              <thead><tr><th>Student ID</th><th>Name</th><th>Block</th><th>Email</th><th>Credentials</th><th>Voted</th></tr></thead>
               <tbody></tbody>
             </table>
           </details>
@@ -217,6 +217,7 @@
 <!-- Admin OTP verification -->
 <div class="overlay" id="otpOverlay">
   <div class="cred-modal">
+    <button class="icon-btn cred-close" id="otpClose" aria-label="Close">&times;</button>
     <p class="cred-eyebrow">Admin verification</p>
     <h3 class="cred-name">Enter the code we sent</h3>
     <p class="panel-note" id="otpTarget" style="margin-bottom:16px;"></p>
@@ -233,7 +234,7 @@
 <!-- Add Student modal (manual add + CSV import, same popup pattern as Candidates/Admin) -->
 <div class="overlay" id="addStudentOverlay">
   <div class="cred-modal cred-modal-lg">
-    <button class="icon-btn" id="closeAddStudentModal" aria-label="Close">&times;</button>
+    <button class="icon-btn cred-close" id="closeAddStudentModal" aria-label="Close">&times;</button>
     <p class="cred-eyebrow">Students</p>
     <h3 class="cred-name">Add students</h3>
 
@@ -271,7 +272,7 @@
 <!-- Add Candidate modal -->
 <div class="overlay" id="addCandidateOverlay">
   <div class="cred-modal cred-modal-lg">
-    <button class="icon-btn" id="closeAddCandidateModal" aria-label="Close">&times;</button>
+    <button class="icon-btn cred-close" id="closeAddCandidateModal" aria-label="Close">&times;</button>
     <p class="cred-eyebrow">Candidates</p>
     <h3 class="cred-name">Add a candidate</h3>
     <div class="field-dark">
@@ -283,8 +284,12 @@
       <input type="text" id="candName" placeholder="Juan Dela Cruz">
     </div>
     <div class="field-dark">
-      <label>Slogan (optional)</label>
-      <input type="text" id="candSlogan" placeholder="For the students!">
+      <label>Party or group</label>
+      <input type="text" id="candParty" placeholder="Student Unity Party">
+    </div>
+    <div class="field-dark">
+      <label>Candidate photo</label>
+      <input type="file" id="candPhoto" accept="image/jpeg,image/png,image/webp">
     </div>
     <button class="btn-gradient" id="addCandidateBtn">Add candidate</button>
   </div>
@@ -293,7 +298,7 @@
 <!-- Add Admin modal -->
 <div class="overlay" id="addAdminOverlay">
   <div class="cred-modal cred-modal-lg">
-    <button class="icon-btn" id="closeAddAdminModal" aria-label="Close">&times;</button>
+    <button class="icon-btn cred-close" id="closeAddAdminModal" aria-label="Close">&times;</button>
     <p class="cred-eyebrow">Admin accounts</p>
     <h3 class="cred-name">Add an admin</h3>
     <div class="field-dark">
@@ -303,6 +308,10 @@
     <div class="field-dark">
       <label>Gmail address</label>
       <input type="email" id="admEmail2" placeholder="name@gmail.com">
+    </div>
+    <div class="field-dark">
+      <label>Party list represented</label>
+      <input type="text" id="admPartyList" placeholder="Student Unity Party">
     </div>
     <div class="field-dark">
       <label>Username</label>

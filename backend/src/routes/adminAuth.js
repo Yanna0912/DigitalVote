@@ -15,6 +15,7 @@ const router = express.Router();
 router.post("/signup", asyncHandler(async (req, res) => {
   const name = String(req.body.name || "").trim();
   const email = String(req.body.email || "").trim();
+  const party_list = String(req.body.party_list || "").trim();
   const username = String(req.body.username || "").trim();
   const password = String(req.body.password || "");
 
@@ -32,7 +33,7 @@ router.post("/signup", asyncHandler(async (req, res) => {
   if (existing) return res.status(409).json({ error: "That username is already taken." });
 
   const password_hash = await bcrypt.hash(password, 10);
-  const { error } = await supabase.from("admins").insert({ name, email, username, password_hash });
+  const { error } = await supabase.from("admins").insert({ name, email, party_list: party_list || null, username, password_hash });
   if (error) return res.status(500).json({ error: "Couldn't create the admin account. Please try again." });
 
   return res.json({ status: "created", message: "Admin account created. You can now log in." });
@@ -67,7 +68,7 @@ router.post("/verify-otp", asyncHandler(async (req, res) => {
   await supabase.from("admin_otp_codes").delete().eq("id", otpRow.id);
 
   const token = signAdminToken(admin);
-  return res.json({ token, admin: { id: admin.id, name: admin.name, email: admin.email, username: admin.username } });
+  return res.json({ token, admin: { id: admin.id, name: admin.name, email: admin.email, username: admin.username, party_list: admin.party_list } });
 }));
 
 module.exports = router;

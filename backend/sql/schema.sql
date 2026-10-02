@@ -45,6 +45,7 @@ create table if not exists admins (
   id             uuid primary key default gen_random_uuid(),
   name           text not null,
   email          text unique not null,
+  party_list     text,
   username       text unique not null,
   password_hash  text not null,
   created_at     timestamptz not null default now()
@@ -69,7 +70,8 @@ create table if not exists candidates (
   id          uuid primary key default gen_random_uuid(),
   position    text not null,
   name        text not null,
-  slogan      text,
+  party       text,
+  photo       text,
   created_at  timestamptz not null default now()
 );
 
@@ -140,6 +142,11 @@ end $$;
 
 -- Block already contains the course and section (for example, BSCS-3).
 alter table students drop column if exists course;
+alter table admins add column if not exists party_list text;
+alter table candidates add column if not exists party text;
+alter table candidates add column if not exists photo text;
+update candidates set party = slogan where party is null and slogan is not null;
+alter table candidates drop column if exists slogan;
 
 do $$
 begin

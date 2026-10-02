@@ -152,6 +152,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .stage {
   flex: 0 0 auto;
   display: flex;
+  color: var(--blue);
   flex-direction: column;
   align-items: center; /* I-center ang hint at links sa ibaba */
   justify-content: center;
@@ -591,6 +592,13 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 
 /* candidates grouped by position, simple list rather than a table */
 .candidate-position-group{margin-bottom:22px;}
+.admin-panel#adminPanelCandidates > .panel-header-row h2{color:var(--teal);}
+.admin-panel#adminPanelAdmins > .panel-header-row h2{color:var(--blue-light);}
+#candidateList,#adminList{
+  max-width:760px; padding:18px; border:1px solid var(--line);
+  border-radius:16px; background:rgba(18,26,52,.72);
+}
+.candidate-position-group{background:rgba(255,255,255,.025); border-radius:12px; padding:14px;}
 .candidate-position-title{
   font-family:'Sora',sans-serif; font-weight:700; font-size:13px; color:var(--teal);
   margin-bottom:10px; text-transform:uppercase; letter-spacing:.6px;
@@ -602,8 +610,11 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 }
 .candidate-list-name{font-weight:600; color:var(--ink); font-size:13.5px;}
 .candidate-list-slogan{font-size:12px; color:var(--muted); margin-top:2px;}
+.candidate-list-party{font-size:12px; color:var(--teal); font-weight:700; margin-top:3px;}
+.candidate-list-photo{width:46px; height:46px; object-fit:cover; border-radius:50%; border:1px solid var(--line); margin-left:auto;}
 
 .dark-table{width:100%; border-collapse:collapse; font-size:13px;}
+.dark-table th:nth-last-child(-n+2),.dark-table td:nth-last-child(-n+2){text-align:center; white-space:nowrap;}
 .dark-table th{
   text-align:left; font-size:10.5px; color:var(--muted); font-weight:700; letter-spacing:.4px;
   text-transform:uppercase; padding:8px 10px; border-bottom:1px solid var(--line);
@@ -616,6 +627,13 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 }
 .status-pill.yes{background:rgba(34,199,126,.14); color:var(--success);}
 .status-pill.no{background:rgba(240,71,92,.14); color:var(--red);}
+.roster-resend-btn{
+  margin-left:7px; padding:4px 8px; border:1px solid var(--line-strong);
+  border-radius:7px; background:rgba(255,255,255,.05); color:var(--ink);
+  font-size:10px; font-weight:700; cursor:pointer;
+}
+.roster-resend-btn:hover{border-color:var(--blue-light);}
+.roster-resend-btn:disabled{opacity:.55; cursor:wait;}
 
 .results-row{margin:0 auto 24px; max-width:760px;}
 .results-position{text-align:center; margin:0 0 14px; font-size:21px; color:var(--ink);}
