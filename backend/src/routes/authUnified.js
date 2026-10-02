@@ -27,19 +27,29 @@ router.post("/login", asyncHandler(async (req, res) => {
   if (admin && (await bcrypt.compare(password, admin.password_hash))) {
     const code = genOtp();
     const expires_at = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-    const { error: otpError } = await supabase.from("admin_otp_codes").insert({ admin_id: admin.id, code, expires_at });
+    const { data: otpRow, error: otpError } = await supabase
+      .from("admin_otp_codes")
+      .insert({ admin_id: admin.id, code, expires_at })
+      .select("id")
+      .single();
     if (otpError) return res.status(500).json({ error: "Couldn't start verification. Please try again." });
 
     const mail = adminOtpEmail({ name: admin.name, code });
     const mailResult = await sendMail({ to: admin.email, ...mail });
+    if (!mailResult.delivered) {
+      await supabase.from("admin_otp_codes").delete().eq("id", otpRow.id);
+      console.error(`[auth] Admin OTP email failed for ${admin.email}: ${mailResult.reason || "unknown"} ${mailResult.error || ""}`);
+      return res.status(502).json({
+        error: "We couldn't send the verification code. Check the Mailjet credentials and confirm MAIL_FROM is a verified sender in Mailjet.",
+      });
+    }
 
     return res.json({
       role: "admin",
       status: "otp_sent",
       username: admin.username,
       maskedEmail: maskEmail(admin.email),
-      emailed: mailResult.delivered,
-      devCode: mailResult.delivered ? undefined : code,
+      emailed: true,
     });
   }
 
