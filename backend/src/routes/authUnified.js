@@ -38,9 +38,11 @@ router.post("/login", asyncHandler(async (req, res) => {
     const mailResult = await sendMail({ to: admin.email, ...mail });
     if (!mailResult.delivered) {
       await supabase.from("admin_otp_codes").delete().eq("id", otpRow.id);
-      console.error(`[auth] Admin OTP email failed for ${admin.email}: ${mailResult.reason || "unknown"} ${mailResult.error || ""}`);
+      console.error(`[auth] Admin OTP email failed for \({admin.email}:\){mailResult.reason || "unknown"} ${mailResult.error || ""}`);
+      
+      // Generic error response without referencing Mailjet
       return res.status(502).json({
-        error: "We couldn't send the verification code. Check the Mailjet credentials and confirm MAIL_FROM is a verified sender in Mailjet.",
+        error: "We couldn't send the verification code. Please click resend or contact support.",
       });
     }
 
