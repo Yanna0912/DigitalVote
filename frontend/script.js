@@ -360,12 +360,24 @@ document.getElementById("credClose").onclick = () => {
 document.querySelectorAll(".copy-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     const text = document.getElementById(btn.dataset.copyTarget).textContent;
-    navigator.clipboard?.writeText(text).then(() => {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(showCopiedState);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      showCopiedState();
+    }
+
+    function showCopiedState() {
       btn.classList.add("copied");
       const original = btn.textContent;
       btn.textContent = "Copied";
       setTimeout(() => { btn.classList.remove("copied"); btn.textContent = original; }, 1500);
-    });
+    }
   });
 });
 
