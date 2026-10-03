@@ -324,19 +324,51 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   color:var(--red); font-size:12.5px; margin:-6px 0 12px; min-height:16px;
 }
 
-.race{border:none; padding:0; margin:0 0 16px;}
-.candidate-row{
-  display:flex; align-items:center; gap:10px;
-  border:1.5px solid var(--line); border-radius:12px;
-  padding:12px 14px; margin-bottom:8px;
-  cursor:pointer; background:rgba(255,255,255,.03);
-  transition:border-color .15s, background .15s;
+.race {
+  border: none;
+  padding: 0;
+  margin: 0 0 16px;
 }
-.candidate-row:hover{border-color:var(--blue-light);}
-.candidate-row input{width:16px; height:16px; accent-color:var(--blue); flex-shrink:0;}
-.candidate-row span{font-size:13.5px;}
-.candidate-row:has(input:checked){border-color:var(--blue); background:rgba(59,107,245,.10);}
 
+.candidate-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, .03);
+  transition: border-color .15s, background .15s;
+}
+
+.candidate-row:hover {
+  border-color: var(--blue-light);
+}
+
+.candidate-row input[type="radio"],
+.candidate-row input[type="checkbox"] {
+  order: 1 !important;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--blue);
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.candidate-row span,
+.candidate-row label,
+.candidate-row .candidate-profile-card {
+  order: 2 !important;
+  flex: 1;
+  font-size: 13.5px;
+}
+
+.candidate-row:has(input:checked) {
+  border-color: var(--blue);
+  background: rgba(59, 107, 245, .10);
+}
 /* ---------- full-screen voting experience ---------- */
 /* Used for: waiting-for-voting-to-open, the ballot itself, and the */
 /* confirmation / already-voted screens that follow a successful login. */

@@ -140,7 +140,9 @@ let registrationPhotoPreviewUrl = null;
 
 /* ---------------- Step: REGISTER / LOG IN ---------------- */
 function renderEntryStep(tab) {
-  activeTab = tab || activeTab || "login";
+  // Pass tab directly; fall back to "login" if not explicitly specified
+  activeTab = tab || "login";
+  
   publicPage.classList.remove("hidden");
   voteFullscreen.classList.remove("show");
   voterSection.classList.remove("hidden");
@@ -542,9 +544,8 @@ function resetToStart() {
   if (waitingPoll) { clearInterval(waitingPoll); waitingPoll = null; }
   clearStudentToken();
   currentStudent = null;
+  activeTab = "login"; // <-- Reset activeTab state explicitly
   voteFullscreen.classList.remove("show");
-  
-  // Change "register" to "login" so it returns to your main log-in UI
   renderEntryStep("login");
 }
 
