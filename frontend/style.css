@@ -564,6 +564,8 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .ballot-header{margin-bottom:28px;}
 .ballot-header .eyebrow{color:var(--teal);}
 .ballot-header h2{font-size:clamp(22px,3vw,30px); font-family:'Sora',sans-serif; color:var(--ink);}
+/* Each position (President, Vice President, ...) stacks in its own full-width
+   row, one below the other — not side-by-side columns. */
 .ballot-grid{display:flex; flex-direction:column; gap:22px; margin-top:6px;}
 .ballot-submit-row{margin-top:32px; max-width:340px;}
 
