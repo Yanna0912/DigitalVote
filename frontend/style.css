@@ -541,33 +541,34 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 /* the ballot itself: wide, occupies the whole screen, not a small card */
 /* ---------- Ballot Container & Cards ---------- */
 /* Ballot layout fixes */
+/* Ensure the ballot container takes full width and flows vertically */
 .ballot-inner {
   width: 100%;
-  max-width: 800px;
+  max-width: 850px;
   margin: 0 auto;
-  padding: 20px;
   box-sizing: border-box;
 }
 
-/* Position block layout (Title on top) */
+/* Position Section Wrapper */
 .ballot-position-group {
   margin-bottom: 32px;
   width: 100%;
+  display: block;
 }
 
+/* Position Header (Always on top) */
 .ballot-position-title {
   font-family: 'Sora', sans-serif;
   font-size: 18px;
   font-weight: 700;
-  color: var(--blue, #3084f1);
-  margin-bottom: 12px;
-  padding-bottom: 6px;
+  color: #3084f1;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
   border-bottom: 2px solid rgba(0, 0, 0, 0.08);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
-/* Candidates list container */
+/* Candidate List - Stacked horizontally full width */
 .candidate-list {
   display: flex;
   flex-direction: column;
@@ -575,78 +576,61 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   width: 100%;
 }
 
-/* Horizontal card: Avatar & Info on Left, Checkbox on Right */
+/* Individual Candidate Card: Row Layout */
 .candidate-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
   padding: 14px 18px;
-  background: #f8fafc;
+  background: #ffffff;
   border: 1.5px solid #e2e8f0;
   border-radius: 12px;
   box-sizing: border-box;
   cursor: pointer;
   transition: all 0.2s ease;
-  white-space: normal; /* Prevents text from vertical wrapping */
-  writing-mode: horizontal-tb; /* Ensures horizontal text orientation */
+  
+  /* CRITICAL: Force normal horizontal text flow */
+  writing-mode: horizontal-tb !important;
+  white-space: normal !important;
+  word-break: normal !important;
 }
 
 .candidate-card:hover {
-  border-color: #3b82f6;
-  background: #f0f6ff;
+  border-color: #3084f1;
+  background: #f8fafc;
   transform: translateY(-1px);
 }
 
-/* Left side: Avatar + Candidate details */
-.candidate-info-wrapper {
+/* Left side: Avatar + Details */
+.candidate-info {
   display: flex;
   align-items: center;
   gap: 14px;
-}
-
-.candidate-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: #3b82f6;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 15px;
-  flex-shrink: 0;
-}
-
-.candidate-details {
-  display: flex;
-  flex-direction: column;
-  text-align: left;
 }
 
 .candidate-name {
   font-size: 16px;
   font-weight: 700;
   color: #1e293b;
-  margin: 0;
+  display: block;
   writing-mode: horizontal-tb;
 }
 
 .candidate-meta {
   font-size: 12.5px;
   color: #64748b;
+  display: block;
   margin-top: 2px;
 }
 
-/* Right side: Clickable Checkbox / Radio button */
+/* Right side: Clickable Radio / Selection */
 .candidate-select {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   margin-left: 16px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
 .candidate-select input[type="radio"],
