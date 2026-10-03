@@ -188,7 +188,7 @@ function registerFormHtml() {
     </div>
     <p class="error-text" id="regError"></p>
     <button class="btn btn-primary" id="btnRegister">Register &amp; get my login</button>
-    <p class="panel-note" style="margin-top:14px;">First time, this saves your email against your Student ID and emails you a username and password.</p>
+    <p class="panel-note" style="margin-top:14px;">No credentials yet? This saves your email against your Student ID and emails you a username and password.</p>
     <div class="signin-block">
       <p class="signin-block-title">Have a login?</p>
       <p class="signin-block-note">Use your username and password to access voting.</p>
@@ -272,7 +272,7 @@ function loginFormHtml() {
     <p class="error-text" id="loginError"></p>
     <button class="btn btn-primary" id="btnLogin">Log in</button>
     <div class="signin-block">
-      <p class="signin-block-title">First time here?</p>
+      <p class="signin-block-title">No credentials yet?</p>
       <button class="btn-secondary" id="tabRegisterBtn" type="button">Register</button>
     </div>`;
 }
@@ -397,7 +397,7 @@ async function renderVoteStep() {
       <legend class="eyebrow" style="margin-bottom:8px;">${race.position}</legend>
       ${race.candidates.map((c) => `
         <label class="candidate-vote-option">
-          <input type="radio" name="race-${ri}" value="${escapeHtml(c.name)}">
+          <input type="checkbox" name="race-${ri}" value="${escapeHtml(c.name)}">
           ${candidateProfileMarkup(c)}
         </label>`).join("")}
     </fieldset>`).join("");
@@ -423,12 +423,10 @@ async function submitVote(ballot) {
   const votes = {};
   for (let ri = 0; ri < ballot.length; ri++) {
     const race = ballot[ri];
-    const checked = document.querySelector(`input[name="race-${ri}"]:checked`);
-    if (!checked) {
-      errorEl.textContent = `Please select a candidate for ${race.position}.`;
-      return;
+    const checked = Array.from(document.querySelectorAll(`input[name="race-${ri}"]:checked`));
+    if (checked.length) {
+      votes[race.position] = checked[0].value;
     }
-    votes[race.position] = checked.value;
   }
   errorEl.textContent = "";
 
@@ -1049,11 +1047,14 @@ async function renderAdminList() {
     ? admins.map((a) => {
         const isSelf = currentAdmin && a.id === currentAdmin.id;
         return `
-          <div class="candidate-list-row">
-            <div>
-              <div class="candidate-list-name">${a.name}${isSelf ? ' <span class="status-pill yes">You</span>' : ""}</div>
-              <div class="candidate-list-party">${a.username} &middot; ${a.email}</div>
-              ${a.party_list ? `<div class="candidate-list-slogan">Party list: ${escapeHtml(a.party_list)}</div>` : ""}
+          <div class="admin-list-row">
+            <div class="admin-list-main">
+              <div class="admin-list-name-row">
+                <span class="admin-list-name">${escapeHtml(a.name)}</span>
+                ${isSelf ? '<span class="status-pill yes">You</span>' : ""}
+              </div>
+              <div class="admin-list-meta">${escapeHtml(a.username)} &middot; ${escapeHtml(a.email)}</div>
+              ${a.party_list ? `<div class="admin-list-party">Party list: ${escapeHtml(a.party_list)}</div>` : ""}
             </div>
           </div>`;
       }).join("")

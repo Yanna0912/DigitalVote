@@ -81,12 +81,14 @@ router.post("/vote", requireStudent, asyncHandler(async (req, res) => {
 
   for (const position of positions) {
     const chosen = votes[position];
-    if (!chosen) return res.status(400).json({ error: `Please select a candidate for ${position}.` });
+    if (!chosen) continue;
     const valid = candidates.some((c) => c.position === position && c.name === chosen);
     if (!valid) return res.status(400).json({ error: `"${chosen}" isn't a valid candidate for ${position}.` });
   }
 
-  const rows = positions.map((position) => ({ student_id_no: student.id_no, position, candidate_name: votes[position] }));
+  const rows = positions
+    .filter((position) => !!votes[position])
+    .map((position) => ({ student_id_no: student.id_no, position, candidate_name: votes[position] }));
   const { error: insertError } = await supabase.from("votes").insert(rows);
   if (insertError) {
     // Unique constraint (student_id_no, position) blocks a double-submit race.

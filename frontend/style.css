@@ -101,7 +101,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   line-height:1.08; margin:0 auto; max-width:560px;
 }
 .hero-title mark{
-  background:red;
+  background:rgb(160, 58, 255);
   -webkit-background-clip:text; background-clip:text; color:transparent;
   padding:0 2px;
 }
@@ -150,6 +150,15 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   height: auto;
   display: block;
   margin:0 auto;
+  transform: perspective(1200px) rotateX(0deg) rotateY(0deg) translateY(0px);
+  transform-style: preserve-3d;
+  transition: transform .25s ease, filter .25s ease, box-shadow .25s ease;
+  filter: drop-shadow(0 18px 18px rgba(12, 61, 107, 0.18));
+}
+
+.left-space img:hover {
+  transform: perspective(1200px) rotateX(6deg) rotateY(-8deg) translateY(-8px) scale(1.02);
+  filter: drop-shadow(0 26px 24px rgba(12, 61, 107, 0.28));
 }
 
 .right-card-area {
@@ -215,7 +224,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 
 .card{
   position:relative;
-  width:440px; max-width:100%;
+  width:510px; max-width:100%;
   background:linear-gradient(180deg, var(--panel-2), var(--panel));
   border:1px solid var(--line);
   border-radius:var(--radius-card);
@@ -231,7 +240,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 @keyframes fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
 
 .eyebrow{
-  font-size:12px; font-weight:600; color:var(--muted);
+  font-size:12px; font-weight:600; color:var(--blue-light); text-transform:uppercase;
   margin:0 0 6px; letter-spacing:.3px;
 }
 .step-title{font-size:24px; font-weight:700; color:var(--ink); margin-bottom:22px;}
@@ -285,7 +294,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   transition:transform .12s ease, box-shadow .12s ease, opacity .15s;
 }
 .btn-primary, .btn-gradient{
-  background:linear-gradient(100deg, var(--blue), var(--teal));
+  background:blue;
   color:#fff;
   box-shadow:0 14px 26px -10px rgba(59,107,245,.55);
 }
@@ -294,7 +303,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .btn-gradient{width:100%; border:none; border-radius:12px; padding:15px 18px; font-family:'Sora',sans-serif; font-weight:700; font-size:14px; cursor:pointer; margin-top:6px;}
 .btn-secondary{
   background:rgba(255,255,255,.04);
-  color:var(--ink);
+  color:var(--shadow);
   border:1.5px solid var(--line);
   width:100%; border-radius:12px; padding:15px 18px; font-family:'Sora',sans-serif; font-weight:700; font-size:14.5px; cursor:pointer; margin-top:10px;
 }
@@ -341,7 +350,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .vote-fullscreen.confirm{background:linear-gradient(160deg, #1B8F63, var(--success) 60%, #0D5C3E);}
 .vote-fullscreen.blocked{background:linear-gradient(160deg, #C23A50, var(--red) 60%, #7C1A2A);}
 .vote-fullscreen.waiting{background:linear-gradient(160deg, #1E2A55, var(--indigo) 60%, #131A3A);}
-.vote-fullscreen.ballot{background:var(--bg); align-items:flex-start;}
+.vote-fullscreen.ballot{background:#fff; align-items:flex-start;}
 
 .takeover-inner{max-width:340px; text-align:center;}
 .status-badge{
@@ -379,7 +388,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .ballot-submit-row{margin-top:32px; max-width:340px;}
 
 /* ---------- hint ---------- */
-.hint{margin-top:18px; font-size:12px; color:var(--muted); text-align:center; max-width:480px;}
+.hint{margin-top:50px; font: size 15px; color:var(--red); text-align:center; max-width:480px;}
 
 /* ---------- overlays / modals ---------- */
 .overlay{
@@ -393,7 +402,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   border:1px solid var(--line);
   border-radius:20px; padding:30px;
   width:380px; max-width:100%;
-  box-shadow:var(--shadow);
+  box-shadow:var(--bg);
   position:relative;
 }
 .cred-modal-lg{width:420px;}
@@ -410,7 +419,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .registration-grid .field-dark{min-width:0;}
 .registration-block-field{grid-column:auto;}
 .registration-photo-field input{padding:10px;}
-.registration-photo-field small{display:block; color:var(--muted); font-size:11px; line-height:1.4; margin-top:6px;}
+.registration-photo-field small{display:block; color:var(--#ffff); font-size:11px; line-height:1.4; margin-top:6px;}
 .photo-choice-row{display:flex; gap:10px;}
 .photo-choice{
   flex:1; display:block; padding:11px 12px; border:1px solid var(--line-strong);
@@ -611,16 +620,24 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   max-width:760px; padding:18px; border:1px solid var(--line);
   border-radius:16px; background:rgba(18,26,52,.72);
 }
+#adminList{display:flex; flex-direction:column; gap:10px;}
 .candidate-position-group{background:rgba(255,255,255,.025); border-radius:12px; padding:14px;}
 .candidate-position-title{
   font-family:'Sora',sans-serif; font-weight:700; font-size:13px; color:var(--teal);
   margin-bottom:10px; text-transform:uppercase; letter-spacing:.6px;
 }
-.candidate-list-row{
+.candidate-list-row,
+.admin-list-row{
   display:flex; align-items:center; justify-content:space-between; gap:10px;
   padding:13px 16px; border:1px solid var(--line); border-radius:12px;
   background:rgba(255,255,255,.02); margin-bottom:8px;
 }
+.admin-list-row{margin-bottom:0;}
+.admin-list-main{display:flex; flex-direction:column; gap:4px; min-width:0; width:100%;}
+.admin-list-name-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.admin-list-name{font-weight:700; color:var(--ink); font-size:13.5px;}
+.admin-list-meta{font-size:12px; color:var(--muted);}
+.admin-list-party{font-size:12px; color:var(--teal); font-weight:700;}
 .candidate-list-row:has(.candidate-profile-card){padding:0; border:0; background:transparent; margin-bottom:10px;}
 .candidate-profile-card{
   width:100%; display:grid; grid-template-columns:76px minmax(0,1fr) 112px;
@@ -637,10 +654,11 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .candidate-profile-result{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; min-height:54px; border-left:1px solid var(--line); color:var(--ink); text-align:center;}
 .candidate-profile-result strong{font-size:13px; font-weight:800; white-space:nowrap;}
 .candidate-profile-result span{font-family:'Sora',sans-serif; font-size:17px; color:var(--teal); font-weight:800;}
-.candidate-vote-option{position:relative; display:block; margin:8px 0; cursor:pointer;}
-.candidate-vote-option>input{position:absolute; top:14px; right:14px; z-index:2; width:18px; height:18px; accent-color:var(--teal);}
-.candidate-vote-option .candidate-profile-card{padding-right:44px;}
-.candidate-vote-option:has(input:checked) .candidate-profile-card{border-color:var(--teal); background:rgba(255,103,103,.1);}
+.candidate-vote-option{display:grid; grid-template-columns:minmax(0,1fr) 22px; align-items:center; gap:12px; margin:8px 0; cursor:pointer;}
+.candidate-vote-option>input{position:static; z-index:2; width:20px; height:20px; accent-color:var(--teal); margin:0 auto;}
+.candidate-vote-option .candidate-profile-card{padding-right:12px; grid-template-columns:120px minmax(0,1fr);}
+.candidate-vote-option .candidate-profile-photo{width:120px; height:120px;}
+.candidate-vote-option:has(input:checked) .candidate-profile-card{border-color:var(--teal); background:rgba(59,107,245,.10);}
 .candidate-list-name{font-weight:600; color:var(--ink); font-size:13.5px;}
 .candidate-list-slogan{font-size:12px; color:var(--muted); margin-top:2px;}
 .candidate-list-party{font-size:12px; color:var(--teal); font-weight:700; margin-top:3px;}
