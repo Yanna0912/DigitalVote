@@ -23,20 +23,17 @@ function getResendClient() {
 
 function getTransporter() {
   if (transporter) return transporter;
-  const useMailjet = selectedEmailProvider() === "mailjet";
-  const host = useMailjet ? (process.env.MAILJET_SMTP_HOST || "in-v3.mailjet.com") : process.env.SMTP_HOST;
-  const user = useMailjet ? process.env.MAILJET_API_KEY : process.env.SMTP_USER;
-  const pass = useMailjet ? process.env.MAILJET_SECRET_KEY : process.env.SMTP_PASS;
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
   if (!host || !user || !pass) {
     return null;
   }
   try {
     transporter = nodemailer.createTransport({
       host,
-      port: Number(useMailjet ? (process.env.MAILJET_SMTP_PORT || 465) : (process.env.SMTP_PORT || 465)),
-      secure: useMailjet
-        ? String(process.env.MAILJET_SMTP_SECURE || "false") === "true"
-        : String(process.env.SMTP_SECURE || "true") === "true",
+      port: Number(process.env.SMTP_PORT || 465),
+      secure: String(process.env.SMTP_SECURE || "true") === "true",
       family: 4,
       // Custom lookup wrapper to strictly force IPv4 resolution
       lookup: (hostname, options, callback) => {
@@ -56,7 +53,7 @@ function getTransporter() {
 }
 
 /**
- * Sends an email. If SMTP isn't configured yet, logs the message to the
+ * Sends an email. If Resend/SMTP isn't configured yet, logs the message to the
  * server console instead of throwing, so the rest of the app (and local
  * development) keeps working while you're still setting up email.
  */
@@ -64,7 +61,8 @@ async function sendMail({ to, subject, html, text }) {
   const resend = getResendClient();
   let resendError = null;
   const provider = selectedEmailProvider();
-  if (provider !== "mailjet" && provider !== "smtp" && resend) {
+
+  if (provider !== "smtp" && resend) {
     try {
       const { data, error } = await resend.emails.send({
         from: process.env.RESEND_FROM || "onboarding@resend.dev",
@@ -91,18 +89,16 @@ async function sendMail({ to, subject, html, text }) {
     // eslint-disable-next-line no-console
     console.warn(
       `[mailer] SMTP is not configured — email NOT actually sent.\n` +
-      `  To: ${to}\n  Subject: ${subject}\n  Body:\n${text || html}\n`
+      `  To: \({to}\n  Subject:\){subject}\n  Body:\n${text || html}\n`
     );
     return {
       delivered: false,
       reason: resendError ? "providers_failed" : "not_configured",
-      error: resendError || (provider === "mailjet"
-        ? "Mailjet is selected but MAILJET_API_KEY or MAILJET_SECRET_KEY is missing."
-        : "No email provider is configured."),
+      error: resendError || "No email provider is configured.",
     };
   }
   try {
-    
+  
     await t.sendMail({
       from: process.env.MAIL_FROM || process.env.SMTP_USER,
       to,
@@ -110,14 +106,18 @@ async function sendMail({ to, subject, html, text }) {
       html,
       text,
     });
-    return { delivered: true, provider: provider === "mailjet" ? "mailjet" : "smtp" };
-  } catch (err) {
-    // A bad SMTP password/host, or the provider rejecting the message,
-    // should degrade to the dev-preview fallback — not 500 the request.
+    return { delivered: true, provider: "smtp" };
+
+  } 
+  
+  catch 
+  (err) 
+  
+{
     // eslint-disable-next-line no-console
-    console.error(`[mailer] Send failed: ${err.message}\n  To: ${to}\n  Subject: ${subject}`);
+    console.error(`[mailer] Send failed: \({err.message}\n  To:\){to}\n  Subject: ${subject}`);
     const providerError = resendError
-      ? `Resend: ${resendError}; SMTP: ${err.message}`
+      ? `Resend: \({resendError}; SMTP:\){err.message}`
       : err.message;
     return { delivered: false, reason: "send_failed", error: providerError };
   }
