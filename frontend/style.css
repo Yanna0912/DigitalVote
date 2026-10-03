@@ -271,18 +271,53 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   outline:none;
   transition:border-color .15s, background .15s;
 }
-.field input::placeholder, .field-dark input::placeholder{color:#5B6389;}
-.field input:focus, .field-dark input:focus{border-color:var(--blue); background:rgba(59,107,245,.06);}
+.field input::placeholder, .field-dark input::placeholder{color:#787b8d;}
+.field input:focus, .field-dark input:focus{border-color:var(--blue); background:rgb(36, 39, 46);}
 .password-field{position:relative;}
 .password-field input{padding-right:50px;}
-.password-toggle{
-  position:absolute; top:50%; right:9px; transform:translateY(-50%);
-  width:32px; height:32px; padding:0; border:0; border-radius:8px;
-  background:transparent; color:var(--muted); cursor:pointer;
-  font-size:17px; line-height:1;
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  
+  /* 3D Glass / Raised Appearance */
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 17px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+ 
 }
-.password-toggle:hover,.password-toggle:focus-visible{
-  color:var(--blue-light); background:rgba(255,255,255,.06); outline:none;
+
+/* Hover: Elevated Glowing 3D state */
+.password-toggle:hover, 
+.password-toggle:focus-visible {
+  color: var(--blue-light);
+  border-color: rgba(59, 107, 245, 0.5);
+  background: linear-gradient(145deg, rgba(59, 107, 245, 0.25), rgba(255, 255, 255, 0.05));
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4), 
+              0 0 10px rgba(59, 107, 245, 0.3),
+              inset 0 1px 1px rgba(255, 255, 255, 0.3);
+  transform: translateY(-52%);
+  outline: none;
+  
+}
+
+/* Click/Active: Sunken "Pressed" 3D Effect */
+.password-toggle:active {
+  transform: translateY(-48%) scale(0.96);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+  border-color: rgba(255, 255, 255, 0.05);
 }
 
 .btn{
@@ -293,21 +328,113 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   cursor:pointer;
   transition:transform .12s ease, box-shadow .12s ease, opacity .15s;
 }
-.btn-primary, .btn-gradient{
-  background:blue;
-  color:#fff;
-  box-shadow:0 14px 26px -10px rgba(59,107,245,.55);
+.btn-primary, .btn-gradient {
+  background: rgb(48, 132, 241);
+  color: #fff;
+  box-shadow: 0 14px 26px -10px rgba(59,107,245,.55);
+  transition: all 0.25s ease-in-out; /* Ensures smooth transition for the glow */
 }
-.btn-primary:hover, .btn-gradient:hover{transform:translateY(-1px);}
-.btn-primary:disabled{opacity:.5; cursor:not-allowed; transform:none;}
-.btn-gradient{width:100%; border:none; border-radius:12px; padding:15px 18px; font-family:'Sora',sans-serif; font-weight:700; font-size:14px; cursor:pointer; margin-top:6px;}
-.btn-secondary{
-  background:rgba(255,255,255,.04);
-  color:var(--shadow);
-  border:1.5px solid var(--line);
-  width:100%; border-radius:12px; padding:15px 18px; font-family:'Sora',sans-serif; font-weight:700; font-size:14.5px; cursor:pointer; margin-top:10px;
+
+/* Glowing effect on hover and focus */
+.btn-primary:hover, .btn-gradient:hover,
+.btn-primary:focus, .btn-gradient:focus {
+  transform: translateY(-2px);
+  background: rgb(65, 145, 255); /* Slightly brighter shade on hover */
+  box-shadow: 0 0 18px rgba(48, 132, 241, 0.8), 
+              0 0 32px rgba(48, 132, 241, 0.4); /* Dual layer glow */
+  outline: none;
 }
-.btn-secondary:hover{border-color:var(--blue);}
+
+.btn-primary:disabled {
+  opacity: .5; 
+  cursor: not-allowed; 
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-gradient {
+  width: 100%; 
+  border: none; 
+  border-radius: 12px; 
+  padding: 15px 18px; 
+  font-family: 'Sora', sans-serif; 
+  font-weight: 700; 
+  font-size: 14px; 
+  cursor: pointer; 
+  margin-top: 6px;
+}
+.btn-secondary {
+  position: relative;
+  background: rgba(255, 255, 255, .04);
+  color: var(--text-primary, #ffffff); /* adjusted text color so it remains visible */
+  border: 1.5px solid var(--line);
+  width: 100%; 
+  border-radius: 12px; 
+  padding: 15px 18px; 
+  font-family: 'Sora', sans-serif; 
+  font-weight: 700; 
+  font-size: 14.5px; 
+  cursor: pointer; 
+  margin-top: 10px;
+  overflow: hidden;
+  z-index: 1;
+  transition: border-color 0.3s ease, transform 0.2s ease;
+}
+
+/* Moving gradient track behind the button */
+.btn-secondary::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(
+    transparent, 
+    #3b6bf5, 
+    #00d4ff, 
+    #7000ff, 
+    transparent 30%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: -2;
+}
+
+/* Inner card body to mask the inside */
+.btn-secondary::after {
+  content: '';
+  position: absolute;
+  inset: 1.5px; /* Matches your border width */
+  background: #10162a; /* Set this to match your dark card background */
+  border-radius: 10.5px;
+  z-index: -1;
+  transition: background 0.3s ease;
+}
+
+/* Hover & Focus state */
+.btn-secondary:hover,
+.btn-secondary:focus {
+  border-color: transparent; /* Hides static border so moving gradient shows */
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.btn-secondary:hover::before,
+.btn-secondary:focus::before {
+  opacity: 1;
+  animation: rotateGlow 2s linear infinite;
+}
+
+/* Rotation Animation */
+@keyframes rotateGlow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
 
 .signin-block{
   margin-top:18px;
@@ -519,7 +646,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   width:30px; height:30px; border-radius:50%;
   font-size:17px; line-height:1; cursor:pointer;
 }
-.icon-btn:hover{border-color:var(--red); color:var(--red);}
+.icon-btn:hover{border-color:var(--blue-light); color:var(--red);}
 
 /* ---------- admin dashboard (sidebar layout) ---------- */
 .admin-section{position:relative; z-index:1; height:100vh; overflow:hidden;}
