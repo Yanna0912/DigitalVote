@@ -835,6 +835,12 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .candidate-profile-result strong{font-size:13px; font-weight:800; white-space:nowrap;}
 .candidate-profile-result span{font-family:'Sora',sans-serif; font-size:17px; color:var(--teal); font-weight:800;}
 .candidate-vote-option{display:grid; grid-template-columns:minmax(0,1fr) 22px; align-items:center; gap:12px; margin:8px 0; cursor:pointer;}
+/* The checkbox comes first in the HTML, so without an explicit order grid
+   auto-placement puts it in the wide 1fr column and squeezes the whole
+   candidate card into the 22px column meant for the checkbox — the card's
+   content then overflows and only a sliver (e.g. the candidate's initials)
+   is visible, pinned to the right edge. Swap the visual order here instead
+   of touching the markup. */
 .candidate-vote-option>input{position:static; z-index:2; width:20px; height:20px; accent-color:var(--teal); margin:0 auto; order:2;}
 .candidate-vote-option .candidate-profile-card{padding-right:12px; grid-template-columns:120px minmax(0,1fr); order:1;}
 .candidate-vote-option .candidate-profile-photo{width:120px; height:120px;}
