@@ -358,25 +358,49 @@ document.getElementById("credClose").onclick = () => {
 };
 
 document.querySelectorAll(".copy-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const text = document.getElementById(btn.dataset.copyTarget).textContent;
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(text).then(showCopiedState);
-    } else {
-      const textarea = document.createElement("textarea");
-      textarea.value = text;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-      showCopiedState();
-    }
+  let timeoutId = null;
 
-    function showCopiedState() {
+  btn.addEventListener("click", async () => {
+    const targetEl = document.getElementById(btn.dataset.copyTarget);
+    if (!targetEl) return;
+
+    // Support both input/textarea values and text elements
+    const textToCopy = targetEl.value !== undefined ? targetEl.value : targetEl.innerText;
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(textToCopy);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = textToCopy;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+
+      // Handle UI feedback
       btn.classList.add("copied");
-      const original = btn.textContent;
+      
+      // Preserve original text even on multiple rapid clicks
+      if (!btn.dataset.originalText) {
+        btn.dataset.originalText = btn.textContent;
+      }
       btn.textContent = "Copied";
-      setTimeout(() => { btn.classList.remove("copied"); btn.textContent = original; }, 1500);
+
+      // Clear any active timeout to prevent race conditions
+      if (timeoutId) clearTimeout(timeoutId);
+
+      timeoutId = setTimeout(() => {
+        btn.classList.remove("copied");
+        btn.textContent = btn.dataset.originalText;
+        delete btn.dataset.originalText;
+      }, 1500);
+
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
     }
   });
 });
@@ -519,7 +543,9 @@ function resetToStart() {
   clearStudentToken();
   currentStudent = null;
   voteFullscreen.classList.remove("show");
-  renderEntryStep("register");
+  
+  // Change "register" to "login" so it returns to your main log-in UI
+  renderEntryStep("login");
 }
 
 async function restoreSession() {
