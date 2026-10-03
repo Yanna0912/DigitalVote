@@ -86,7 +86,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .hero-eyebrow {
   display: inline-block;
   background-color: #f0fdf4;
-  color: #0d9488;
+  color: #3225e6;
   border: 1px solid #ccfbf1;
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
@@ -101,7 +101,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   line-height:1.08; margin:0 auto; max-width:560px;
 }
 .hero-title mark{
-  background:linear-gradient(120deg, var(--blue), var(--teal));
+  background:red;
   -webkit-background-clip:text; background-clip:text; color:transparent;
   padding:0 2px;
 }
@@ -132,8 +132,16 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items:flex-start;
+  align-items:center;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
 }
+.left-space .hero{text-align:center; padding:0 0 14px;}
+.left-space .hero-title{color:var(--ink); margin:0 auto;}
+.left-space .hero-eyebrow{background:#fff;}
 
 .left-space img {
   width: 100%;
@@ -141,7 +149,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   max-height:38vh;
   height: auto;
   display: block;
-  margin-right:  auto;
+  margin:0 auto;
 }
 
 .right-card-area {
@@ -193,9 +201,8 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   .left-space img {
     max-height:none;
   }
-  .left-space{width:100%; align-items:center;}
-  .left-space .hero{text-align:center; padding:0 10px 12px;}
-  .left-space .hero-title{margin:0 auto;}
+  .left-space{width:100%; padding:20px 14px;}
+  .left-space .hero{padding:0 10px 12px;}
 }
 
 

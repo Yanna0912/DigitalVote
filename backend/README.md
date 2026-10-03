@@ -19,11 +19,24 @@ open/closed switch), and CSV roster import.
 
 ## 2. Set up outgoing email
 
-Mailjet SMTP and Resend are supported. To use Mailjet, add these variables
-to Render (and local `.env` when testing locally):
+Resend is the default email provider. Add these variables to Render (and
+local `.env` when testing locally):
 
 ```
-EMAIL_PROVIDER=mailjet
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=re_...
+RESEND_FROM=CCDI Election Portal <no-reply@your-verified-domain.com>
+```
+
+Verify the sender domain in Resend. For a temporary test, you can use
+`onboarding@resend.dev`, but Resend may restrict that sender to the email
+address associated with your Resend account. OTP and approval emails are
+triggered by the existing login and admin-approval actions.
+
+Mailjet SMTP is also available as an optional provider. Select it explicitly
+with `EMAIL_PROVIDER=mailjet` and configure:
+
+```
 MAILJET_API_KEY=your-mailjet-api-key
 MAILJET_SECRET_KEY=your-mailjet-secret-key
 MAILJET_SMTP_HOST=in-v3.mailjet.com
@@ -34,21 +47,6 @@ MAIL_FROM=CCDI Election Portal <verified-sender@your-domain.com>
 
 The sender address/domain must be verified in Mailjet. Mailjet uses its API
 key as the SMTP username and its secret key as the SMTP password.
-When both Mailjet credential variables are present, the backend selects
-Mailjet automatically unless `EMAIL_PROVIDER` explicitly selects another
-provider. OTP and approval emails are triggered by the existing login and
-admin-approval actions.
-
-To use Resend instead, set `EMAIL_PROVIDER=resend` and configure:
-
-```
-RESEND_API_KEY=re_...
-RESEND_FROM=CCDI Election Portal <no-reply@your-verified-domain.com>
-```
-
-In Resend, verify the domain used by `RESEND_FROM`. For a temporary test,
-you can use `onboarding@resend.dev`, but Resend may restrict that sender to
-the email address associated with your Resend account.
 
 SMTP is also supported as a fallback. The simplest SMTP option for a school
 project is Gmail with an **App Password**:
