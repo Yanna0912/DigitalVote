@@ -744,6 +744,34 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 
 .legend-item.unregistered strong { color: #ffb800; }   /* Yellow: Not registered */
 
+/* Color overrides for legend item numbers */
+/* Color overrides for the metric stat card numbers */
+.metric-pending .stat-num {
+  color: var(--red) !important;
+}
+
+.metric-credentials .stat-num {
+  color: var(--blue-light) !important;
+}
+
+.metric-voted .stat-num {
+  color: var(--success) !important;
+}
+.legend-item.pending strong {
+  color: var(--red) !important;
+}
+
+.legend-item.credentials strong {
+  color: var(--blue-light) !important;
+}
+
+.legend-item.voted strong {
+  color: var(--success) !important;
+}
+
+.legend-item.unregistered strong {
+  color: rgba(255, 255, 255, 0.4) !important; /* Matches chart's remaining slice */
+}
 .stat-label{font-size:12px; color:var(--muted); margin-top:4px;}
 .status-card{display:flex; flex-direction:column; justify-content:center; gap:5px; cursor:pointer; border:1px solid var(--line-strong); transition:transform .12s; color:var(--ink); font:inherit; text-align:right; padding:10px 14px;}
 .stat-card.status-card:hover{transform:translateY(-2px);}
