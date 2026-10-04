@@ -664,12 +664,12 @@ async function renderStatRow() {
   statRow.innerHTML = `
     <div class="stat-card total-stat-card">
       <div class="stat-label">Total students</div>
-      <div class="stat-num">${stats.total}</div>
+      <div class="stat-num1">${stats.total}</div>
     </div>
     <div class="metric-card-grid">
-      <div class="stat-card metric-stat-card"><div class="stat-num">${stats.pending}</div><div class="stat-label">Pending approval</div></div>
-      <div class="stat-card metric-stat-card"><div class="stat-num">${stats.registeredNotVoted}</div><div class="stat-label">Credentials issued</div></div>
-      <div class="stat-card metric-stat-card"><div class="stat-num">${stats.voted}</div><div class="stat-label">Voted</div></div>
+      <div class="stat-card metric-stat-card"><div class="stat-num2">${stats.pending}</div><div class="stat-label">Pending approval</div></div>
+      <div class="stat-card metric-stat-card"><div class="stat-num3">${stats.registeredNotVoted}</div><div class="stat-label">Credentials issued</div></div>
+      <div class="stat-card metric-stat-card"><div class="stat-num4">${stats.voted}</div><div class="stat-label">Voted</div></div>
     </div>`;
 
   document.getElementById("statusCardContainer").innerHTML = `

@@ -683,9 +683,9 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   padding:16px 14px;
 }
 .admin-brand{display:flex; align-items:center; gap:10px; margin-bottom:20px;}
-.admin-logo{width:36px; height:auto; background:#fff; border-radius:50%; padding:4px; flex-shrink:0;}
+.admin-logo{width:52px; height:auto; background:#fff; border-radius:50%; padding:4px; flex-shrink:0;}
 .admin-title{margin:0; font-family:'Sora',sans-serif; font-weight:800; font-size:15px; color:var(--#ffff);}
-.admin-sub{margin:1px 0 0; font-size:10.5px; color:var(--ink);}
+.admin-sub{margin:1px 0 0; font-size:12px; color:var(--ink);}
 
 .sidebar-nav{display:flex; flex-direction:column; gap:4px;}
 .sidebar-link{
@@ -735,19 +735,19 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .stat-num{font-family:'Sora',sans-serif; font-weight:800; font-size:30px; color:var(--ink);}
 
 /* --- Color mapping for Stat Box Numbers & Legend Numbers --- */
-.metric-pending .stat-num,
+.metric-pending .stat-num2,
 .legend-item.pending strong { color: #ff4d4d; }       /* Red: Pending approval */
-.metric-credentials .stat-num,
+.metric-credentials .stat-num3,
 .legend-item.credentials strong { color: #5c72e6; }   /* Blue: Credentials issued */
-.metric-voted .stat-num,
+.metric-voted .stat-num4,
 .legend-item.voted strong { color: #2cdb75; }         /* Green: Voted */
 
 .legend-item.unregistered strong { color: #ffb800; }   /* Yellow: Not registered */
 
 /* Color overrides for legend item numbers */
 /* Color overrides for the metric stat card numbers */
-.metric-pending .stat-num {
-  color: var(--red) !important;
+.metric-pending .stat-num1 {
+  color: var(--blue) !important;
 }
 
 .metric-credentials .stat-num {
@@ -785,7 +785,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   border:1px solid var(--line); border-radius:var(--radius-card);
   padding:18px; margin-bottom:14px; max-width:640px;
 }
-.panel-heading{font-size:17px; color:var(--ink); margin-bottom:16px;}
+.panel-heading{font-size:17px; color:var(--success); margin-bottom:16px;}
 .participation-card{max-width:none; margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;}
 .participation-card .panel-heading{margin-bottom:10px;}
 .participation-chart{width:clamp(130px,15vw,180px); aspect-ratio:1; border-radius:50%; position:relative; margin:4px auto 14px;}
