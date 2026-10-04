@@ -683,7 +683,7 @@ async function renderStatRow() {
   const credentialAngle = pendingAngle + (stats.registeredNotVoted / chartTotal) * 360;
   const votedAngle = credentialAngle + (stats.voted / chartTotal) * 360;
   const notRegistered = Math.max(0, stats.total - stats.pending - stats.registeredNotVoted - stats.voted);
-  document.getElementById("participationChart").style.background = `conic-gradient(var(--red) 0deg ${pendingAngle}deg, var(--blue-light) ${pendingAngle}deg ${credentialAngle}deg, var(--success) ${credentialAngle}deg ${votedAngle}deg, rgba(255,255,255,.16) ${votedAngle}deg 360deg)`;
+  document.getElementById("participationChart").style.background = `conic-gradient(var(--red) deg ${pendingAngle}deg, var(--blue-light) ${pendingAngle}deg ${credentialAngle}deg, var(--success) ${credentialAngle}deg ${votedAngle}deg, rgba(255,255,255,.16) ${votedAngle}deg 360deg)`;
   document.getElementById("participationChart").innerHTML = `<span class="participation-chart-center"><strong>${Math.round((stats.voted / chartTotal) * 100)}%</strong><small>voted</small></span>`;
   document.getElementById("participationLegend").innerHTML = [
     ["Pending approval", stats.pending, "var(--red)"],
