@@ -1125,5 +1125,16 @@ document.getElementById("addAdminBtn").onclick = async () => {
   }
 };
 
+document.addEventListener("DOMContentLoaded", () => {
+  const isAdminLoggedIn = localStorage.getItem("isAdminLoggedIn") === "true";
+
+  if (isAdminLoggedIn) {
+    // Skip login forms and immediately show the admin view
+    renderAdminDashboard();
+  } else {
+    // Show default voter login / entry step
+    renderEntryStep();
+  }
+});
 /* ---------------- Boot ---------------- */
 restoreSession();
