@@ -664,12 +664,12 @@ async function renderStatRow() {
   statRow.innerHTML = `
     <div class="stat-card total-stat-card">
       <div class="stat-label">Total students</div>
-      <div class="stat-num1">${stats.total}</div>
+      <div class="stat-numa">${stats.total}</div>
     </div>
     <div class="metric-card-grid">
-      <div class="stat-card metric-stat-card"><div class="stat-num2">${stats.pending}</div><div class="stat-label">Pending approval</div></div>
-      <div class="stat-card metric-stat-card"><div class="stat-num3">${stats.registeredNotVoted}</div><div class="stat-label">Credentials issued</div></div>
-      <div class="stat-card metric-stat-card"><div class="stat-num4">${stats.voted}</div><div class="stat-label">Voted</div></div>
+      <div class="stat-card metric-stat-card"><div class="stat-nume">${stats.pending}</div><div class="stat-label">Pending approval</div></div>
+      <div class="stat-card metric-stat-card"><div class="stat-numi">${stats.registeredNotVoted}</div><div class="stat-label">Credentials issued</div></div>
+      <div class="stat-card metric-stat-card"><div class="stat-numo">${stats.voted}</div><div class="stat-label">Voted</div></div>
     </div>`;
 
   document.getElementById("statusCardContainer").innerHTML = `
@@ -683,7 +683,7 @@ async function renderStatRow() {
   const credentialAngle = pendingAngle + (stats.registeredNotVoted / chartTotal) * 360;
   const votedAngle = credentialAngle + (stats.voted / chartTotal) * 360;
   const notRegistered = Math.max(0, stats.total - stats.pending - stats.registeredNotVoted - stats.voted);
-  document.getElementById("participationChart").style.background = `conic-gradient(var(--red) 0deg ${pendingAngle}deg, var(--blue-light) ${pendingAngle}deg ${credentialAngle}deg, var(--success) ${credentialAngle}deg ${votedAngle}deg, rgba(255,255,255,.16) ${votedAngle}deg 360deg)`;
+  document.getElementById("participationChart").style.background = `conic-gradient(var(--red) 0deg ${pendingAngle}deg, var(--blue-light) ${pendingAngle}deg ${credentialAngle}deg, var(--blue) ${credentialAngle}deg ${votedAngle}deg, rgba(255,255,255,.16) ${votedAngle}deg 360deg)`;
   document.getElementById("participationChart").innerHTML = `<span class="participation-chart-center"><strong>${Math.round((stats.voted / chartTotal) * 100)}%</strong><small>voted</small></span>`;
   document.getElementById("participationLegend").innerHTML = [
     ["Pending approval", stats.pending, "var(--red)"],

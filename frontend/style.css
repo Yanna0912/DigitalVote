@@ -721,7 +721,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .btn-logout:hover{border-color:var(--red); color:var(--red);}
 
 .dashboard-header-row{display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:14px;}
-.dashboard-header-row h2{font-family:'Sora',sans-serif; font-size:20px; color:var(--ink);}
+.dashboard-header-row h2{font-family:'Sora',sans-serif; font-size:20px; color:var(--blue);}
 .dashboard-overview{display:grid; grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr); gap:14px; align-items:stretch; margin-bottom:14px;}
 .dashboard-metrics{display:grid; grid-template-rows:minmax(118px,1fr) minmax(96px,auto); gap:10px; min-width:0;}
 .metric-card-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;}
@@ -732,46 +732,13 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .total-stat-card{display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;}
 .total-stat-card .stat-num{font-size:clamp(44px,5vw,68px); line-height:1; margin-top:8px; color:var(--ink);}
 .metric-stat-card{display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-width:0;}
-.stat-num{font-family:'Sora',sans-serif; font-weight:800; font-size:30px; color:var(--ink);}
+.stat-numa{font-family:'Sora',sans-serif; font-weight:800; font-size:30px; color:var(--blue);}
+.stat-nume{font-family:'Sora',sans-serif; font-weight:800; font-size:18px; color:var(--#ff4d4d);}
+.stat-numi{font-family:'Sora',sans-serif; font-weight:800; font-size:18px; color:var(--#5c72e6);}
+.stat-numo{font-family:'Sora',sans-serif; font-weight:800; font-size:18px; color:var(--#2cdb75);}
 
 /* --- Color mapping for Stat Box Numbers & Legend Numbers --- */
-.metric-pending .stat-num2,
-.legend-item.pending strong { color: #ff4d4d; }       /* Red: Pending approval */
-.metric-credentials .stat-num3,
-.legend-item.credentials strong { color: #5c72e6; }   /* Blue: Credentials issued */
-.metric-voted .stat-num4,
-.legend-item.voted strong { color: #2cdb75; }         /* Green: Voted */
 
-.legend-item.unregistered strong { color: #ffb800; }   /* Yellow: Not registered */
-
-/* Color overrides for legend item numbers */
-/* Color overrides for the metric stat card numbers */
-.metric-pending .stat-num1 {
-  color: var(--blue) !important;
-}
-
-.metric-credentials .stat-num {
-  color: var(--blue-light) !important;
-}
-
-.metric-voted .stat-num {
-  color: var(--success) !important;
-}
-.legend-item.pending strong {
-  color: var(--red) !important;
-}
-
-.legend-item.credentials strong {
-  color: var(--blue-light) !important;
-}
-
-.legend-item.voted strong {
-  color: var(--success) !important;
-}
-
-.legend-item.unregistered strong {
-  color: rgba(255, 255, 255, 0.4) !important; /* Matches chart's remaining slice */
-}
 .stat-label{font-size:12px; color:var(--muted); margin-top:4px;}
 .status-card{display:flex; flex-direction:column; justify-content:center; gap:5px; cursor:pointer; border:1px solid var(--line-strong); transition:transform .12s; color:var(--ink); font:inherit; text-align:right; padding:10px 14px;}
 .stat-card.status-card:hover{transform:translateY(-2px);}
