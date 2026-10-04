@@ -9,7 +9,7 @@ const ballotRoutes = require("./routes/ballot");
 const adminRoutes = require("./routes/admin");
 
 const app = express();
-app.use(express.json({ limit: "6mb" }));
+app.use(express.json());
 
 const origin = process.env.FRONTEND_ORIGIN || "*";
 app.use(cors({ origin, credentials: false }));
