@@ -734,21 +734,15 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .metric-stat-card{display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-width:0;}
 .stat-num{font-family:'Sora',sans-serif; font-weight:800; font-size:30px; color:var(--ink);}
 
-/* --- Match Stat Card Numbers and Legend Values to Chart Colors --- */
-/* Pending approval (Coral Red) */
+/* --- Color mapping for Stat Box Numbers & Legend Numbers --- */
 .metric-pending .stat-num,
-.legend-item.pending strong { color: #ff5252; }
-
-/* Credentials issued (Purple-Blue) */
+.legend-item.pending strong { color: #ff4d4d; }       /* Red: Pending approval */
 .metric-credentials .stat-num,
-.legend-item.credentials strong { color: #5c72e6; }
-
-/* Voted (Green) */
+.legend-item.credentials strong { color: #5c72e6; }   /* Blue: Credentials issued */
 .metric-voted .stat-num,
-.legend-item.voted strong { color: #2cdb75; }
+.legend-item.voted strong { color: #2cdb75; }         /* Green: Voted */
 
-/* Not registered (Yellow/Orange) */
-.legend-item.unregistered strong { color: #ffb800; }
+.legend-item.unregistered strong { color: #ffb800; }   /* Yellow: Not registered */
 
 .stat-label{font-size:12px; color:var(--muted); margin-top:4px;}
 .status-card{display:flex; flex-direction:column; justify-content:center; gap:5px; cursor:pointer; border:1px solid var(--line-strong); transition:transform .12s; color:var(--ink); font:inherit; text-align:right; padding:10px 14px;}
