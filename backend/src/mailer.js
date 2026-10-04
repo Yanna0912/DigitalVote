@@ -1,140 +1,37 @@
 const nodemailer = require("nodemailer");
-const { Resend } = require("resend");
-const dns = require("dns");
 
-// Force Node.js to resolve IPv4 addresses first globally
-if (dns.setDefaultResultOrder) {
-  dns.setDefaultResultOrder("ipv4first");
-}
+// Create SMTP Transporter using environment variables
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || "587"),
+  secure: process.env.SMTP_SECURE === "true", // true for 465, false for 587
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS, // App password for Gmail
+  },
+});
 
-let transporter = null;
-let resendClient = null;
-
-function selectedEmailProvider() {
-  return String(process.env.EMAIL_PROVIDER || "resend").trim().toLowerCase();
-}
-
-function getResendClient() {
-  if (resendClient) return resendClient;
-  if (!process.env.RESEND_API_KEY) return null;
-  resendClient = new Resend(process.env.RESEND_API_KEY.trim());
-  return resendClient;
-}
-
-function getTransporter() {
-  if (transporter) return transporter;
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) {
-    return null;
-  }
+async function sendMail({ to, subject, html }) {
   try {
-    transporter = nodemailer.createTransport({
-      host,
-      port: Number(process.env.SMTP_PORT || 465),
-      secure: String(process.env.SMTP_SECURE || "true") === "true",
-      family: 4,
-      // Custom lookup wrapper to strictly force IPv4 resolution
-      lookup: (hostname, options, callback) => {
-        dns.lookup(hostname, { family: 4 }, callback);
-      },
-      auth: {
-        user: user.trim(),
-        pass: pass.replace(/\s/g, ""),
-      },
-    });
-    return transporter;
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error("[mailer] Failed to create transporter:", err.message);
-    return null;
-  }
-}
-
-/**
- * Sends an email. If Resend/SMTP isn't configured yet, logs the message to the
- * server console instead of throwing, so the rest of the app (and local
- * development) keeps working while you're still setting up email.
- */
-async function sendMail({ to, subject, html, text }) {
-  const resend = getResendClient();
-  let resendError = null;
-  const provider = selectedEmailProvider();
-
-  if (provider !== "smtp" && resend) {
-    try {
-      const { data, error } = await resend.emails.send({
-        from: process.env.RESEND_FROM || "onboarding@resend.dev",
-        to: [to],
-        subject,
-        html,
-        text,
-      });
-      if (error) {
-        resendError = error.message || String(error);
-        console.error(`[mailer] Resend rejected email to ${to}:`, error.message || error);
-      } else {
-        return { delivered: true, provider: "resend", id: data?.id };
-      }
-    } catch (err) {
-      resendError = err.message;
-      console.error(`[mailer] Resend failed for ${to}:`, err.message);
-    }
-    console.warn(`[mailer] Falling back to SMTP for ${to}.`);
-  }
-
-  const t = getTransporter();
-  if (!t) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[mailer] SMTP is not configured — email NOT actually sent.\n` +
-      `  To: \({to}\n  Subject:\){subject}\n  Body:\n${text || html}\n`
-    );
-    return {
-      delivered: false,
-      reason: resendError ? "providers_failed" : "not_configured",
-      error: resendError || "No email provider is configured.",
-    };
-  }
-  try {
-  
-    await t.sendMail({
-      from: process.env.MAIL_FROM || process.env.SMTP_USER,
+    const info = await transporter.sendMail({
+      from: process.env.MAIL_FROM || `"DigitalVote Admin" <${process.env.SMTP_USER}>`,
       to,
       subject,
       html,
-      text,
     });
-    return { delivered: true, provider: "smtp" };
 
-  } 
-  
-  catch 
-  (err) 
-  
-{
-    // eslint-disable-next-line no-console
-    console.error(`[mailer] Send failed: \({err.message}\n  To:\){to}\n  Subject: ${subject}`);
-    const providerError = resendError
-      ? `Resend: \({resendError}; SMTP:\){err.message}`
-      : err.message;
-    return { delivered: false, reason: "send_failed", error: providerError };
+    console.log(`[mailer] Email sent successfully to \({to}:\){info.messageId}`);
+    return { delivered: true, id: info.messageId };
+  } catch (error) {
+    console.error(`[mailer] SMTP Error:`, error);
+    return { delivered: false, reason: error.message };
   }
 }
 
-function studentCredentialsEmail({ name, username, password }) {
+function adminOtpEmail({ name, code }) {
   return {
-    subject: "Your CCDI SSG Election voting login",
-    text:
-      `Hi ${name},\n\n` +
-      `You're registered to vote in the CCDI Supreme Student Government Election.\n\n` +
-      `Username: ${username}\n` +
-      `Password: ${password}\n\n` +
-      `Keep this email — you'll use these to log in and vote once the election officer opens voting.\n\n` +
-      `If you didn't request this, please contact the election officer.`,
-    html:
-      `<p>Hi ${name},</p>` +
+    subject: `${code} is your DigitalVote admin verification code`,
+    html: `<p>Hi ${name},</p>` +
       `<p>You're registered to vote in the <strong>CCDI Supreme Student Government Election</strong>.</p>` +
       `<p><strong>Username:</strong> ${username}<br><strong>Password:</strong> ${password}</p>` +
       `<p>Keep this email — you'll use these to log in and vote once the election officer opens voting.</p>` +
