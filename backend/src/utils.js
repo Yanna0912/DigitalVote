@@ -62,5 +62,16 @@ function isGmail(email) {
 function asyncHandler(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 }
+document.addEventListener("DOMContentLoaded", () => {
+  const isAdminLoggedIn = localStorage.getItem("isAdminLoggedIn") === "true";
+
+  if (isAdminLoggedIn) {
+    // Skip login forms and immediately show the admin view
+    renderAdminDashboard();
+  } else {
+    // Show default voter login / entry step
+    renderEntryStep();
+  }
+});
 
 module.exports = { genUsername, studentDisplayName, studentNameParts, genPassword, genOtp, maskEmail, isGmail, asyncHandler };

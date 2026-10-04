@@ -733,8 +733,8 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .total-stat-card .stat-num{font-size:clamp(44px,5vw,86px); line-height:1; margin-top:8px; color:var(--blue);}
 .metric-stat-card{display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-width:0;}
 .metric-stat-card .stat-numa{font-family:'Sora',sans-serif; font-weight:800; font-size:46px; color:var(--red);}
-.metric-stat-card .stat-numa{font-family:'Sora',sans-serif; font-weight:800; font-size:46px; color:var(--blue-light);}
-.metric-stat-card .stat-numa{font-family:'Sora',sans-serif; font-weight:800; font-size:46px; color:var(--success);}
+.metric-stat-card .stat-nume{font-family:'Sora',sans-serif; font-weight:800; font-size:46px; color:var(--blue-light);}
+.metric-stat-card .stat-numi{font-family:'Sora',sans-serif; font-weight:800; font-size:46px; color:var(--success);}
 /* --- Color mapping for Stat Box Numbers & Legend Numbers --- */
 
 .stat-label{font-size:12px; color:var(--#ffff); margin-top:4px;}
