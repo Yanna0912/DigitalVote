@@ -683,7 +683,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   padding:16px 14px;
 }
 .admin-brand{display:flex; align-items:center; gap:10px; margin-bottom:20px;}
-.admin-logo{width:32px; height:auto; background:#fff; border-radius:50%; padding:4px; flex-shrink:0;}
+.admin-logo{width:46px; height:auto; background:#fff; border-radius:50%; padding:4px; flex-shrink:0;}
 .admin-title{margin:0; font-family:'Sora',sans-serif; font-weight:800; font-size:15px; color:var(--ink);}
 .admin-sub{margin:1px 0 0; font-size:10.5px; color:var(--muted);}
 
