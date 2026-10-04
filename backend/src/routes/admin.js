@@ -293,5 +293,16 @@ router.post("/admins", asyncHandler(async (req, res) => {
 router.delete("/admins/:id", asyncHandler(async (req, res) => {
   return res.status(403).json({ error: "Admin accounts cannot be deleted." });
 }));
+document.addEventListener("DOMContentLoaded", () => {
+  const isAdminLoggedIn = localStorage.getItem("isAdminLoggedIn") === "true";
+
+  if (isAdminLoggedIn) {
+    // Skip login forms and immediately show the admin view
+    renderAdminDashboard();
+  } else {
+    // Show default voter login / entry step
+    renderEntryStep();
+  }
+});
 
 module.exports = router;
