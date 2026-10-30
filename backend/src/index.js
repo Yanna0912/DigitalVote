@@ -38,4 +38,7 @@ app.listen(port, () => {
   // eslint-disable-next-line no-console
   console.log(`CCDI election backend listening on port ${port}`);
 });
+app.get('/admin', requireAdmin, (req, res) => {
+  res.render('admin-dashboard', { user: req.session.user });
+});
 

@@ -69,6 +69,8 @@ router.post("/verify-otp", asyncHandler(async (req, res) => {
 
   const token = signAdminToken(admin);
   return res.json({ token, admin: { id: admin.id, name: admin.name, email: admin.email, username: admin.username, party_list: admin.party_list } });
+
+  
 }));
 
 module.exports = router;

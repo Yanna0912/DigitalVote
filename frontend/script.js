@@ -205,13 +205,13 @@ function openRegistrationModal() {
 }
 
 async function submitRegistration() {
+
   const errorEl = document.getElementById("registrationError");
   errorEl.textContent = "";
-  const fieldIds = ["registrationFirstName", "registrationLastName", "registrationStudentId", "registrationBlock", "registrationEmail"];
+  const fieldIds = ["registrationFirstName", "registrationLastName", "registrationStudentId", "registrationEmail"];
   const values = Object.fromEntries(fieldIds.map((id) => [id, document.getElementById(id).value.trim()]));
-  const photo = selectedRegistrationPhoto;
-  if (fieldIds.some((id) => !values[id]) || !photo) {
-    errorEl.textContent = "Complete all required fields and attach an ID photo.";
+  if (fieldIds.some((id) => !values[id])) {
+    errorEl.textContent = "Please complete all required fields.";
     return;
   }
   const button = document.getElementById("submitRegistration");
@@ -221,46 +221,32 @@ async function submitRegistration() {
   form.append("last_name", values.registrationLastName);
   form.append("suffix", document.getElementById("registrationSuffix").value.trim());
   form.append("id_no", values.registrationStudentId);
-  form.append("block", values.registrationBlock);
+  
   form.append("email", values.registrationEmail);
-  form.append("id_photo", photo);
+
   try {
     const data = await apiMultipart("/auth/student/register", form);
     registrationOverlay.classList.remove("show");
-    alert(data.message || "Registration submitted for approval.");
-    document.getElementById("registrationPhotoCamera").value = "";
-    document.getElementById("registrationPhotoUpload").value = "";
-    selectedRegistrationPhoto = null;
-    if (registrationPhotoPreviewUrl) URL.revokeObjectURL(registrationPhotoPreviewUrl);
-    registrationPhotoPreviewUrl = null;
-    document.getElementById("registrationPhotoPreview").classList.remove("has-image");
-    document.getElementById("registrationPhotoPreviewImage").removeAttribute("src");
-    document.getElementById("registrationPhotoName").textContent = "No photo selected.";
+    alert(data.message || "Registration submitted. Check your email for your credentials.");
   } catch (err) {
     errorEl.textContent = err.error || "Couldn't submit your registration.";
   } finally {
     button.disabled = false;
   }
 }
+function closeRegistrationModal() {
+  registrationOverlay.classList.remove("show");
+  renderEntryStep("login");
+}
 
-document.getElementById("registrationClose").onclick = () => registrationOverlay.classList.remove("show");
-document.getElementById("submitRegistration").onclick = submitRegistration;
-document.getElementById("otpClose").onclick = () => otpOverlay.classList.remove("show");
-[
-  document.getElementById("registrationPhotoCamera"),
-  document.getElementById("registrationPhotoUpload"),
-].forEach((input) => {
-  input.onchange = () => {
-    const photo = input.files[0];
-    if (!photo) return;
-    selectedRegistrationPhoto = photo;
-    if (registrationPhotoPreviewUrl) URL.revokeObjectURL(registrationPhotoPreviewUrl);
-    registrationPhotoPreviewUrl = URL.createObjectURL(photo);
-    document.getElementById("registrationPhotoPreviewImage").src = registrationPhotoPreviewUrl;
-    document.getElementById("registrationPhotoPreview").classList.add("has-image");
-    document.getElementById("registrationPhotoName").textContent = photo.name;
-  };
-});
+document.getElementById("registrationClose")?.addEventListener("click", closeRegistrationModal);
+document.getElementById("submitRegistration")?.addEventListener("click", submitRegistration);
+document.getElementById("otpClose")?.addEventListener("click", () => otpOverlay.classList.remove("show"));
+
+// optional: click the dark background or press Esc to close
+registrationOverlay.addEventListener("click", (e) => { if (e.target === registrationOverlay) closeRegistrationModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeRegistrationModal(); });
+
 
 function loginFormHtml() {
   return `

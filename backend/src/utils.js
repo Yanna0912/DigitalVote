@@ -73,5 +73,12 @@ document.addEventListener("DOMContentLoaded", () => {
     renderEntryStep();
   }
 });
+function requireAdmin(req, res, next) {
+  if (req.session && req.session.user && req.session.user.isAdmin) {
+    return next(); // Session exists on refresh, render page
+  }
+  return res.redirect('/login');
+}
+
 
 module.exports = { genUsername, studentDisplayName, studentNameParts, genPassword, genOtp, maskEmail, isGmail, asyncHandler };
