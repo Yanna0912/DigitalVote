@@ -251,7 +251,7 @@ function loginFormHtml() {
       <input type="password" id="loginPass" placeholder="Password" autocomplete="off">
       <button class="password-toggle" id="toggleLoginPassword" type="button" aria-label="Show password" title="Show password">&#128065;</button>
     </div>
-    <p class="forgot-password-link"><a href="#" id="forgotAdminPassword">Forgot admin password?</a></p>
+    <p class="forgot-password-link"><a href="#" id="forgotAdminPassword">Forgot  password?</a></p>
     <p class="error-text" id="loginError"></p>
     <button class="btn btn-primary" id="btnLogin">Log in</button>
     <div class="signin-block">
