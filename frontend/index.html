@@ -181,6 +181,38 @@
     <p class="cred-note" id="credMessage" style="margin-top:0;"></p></div>
 </div>
 
+<!-- Admin password recovery -->
+<div class="overlay" id="forgotPasswordOverlay">
+  <div class="cred-modal">
+    <button class="icon-btn cred-close" id="forgotPasswordClose" aria-label="Close">&times;</button>
+    <p class="cred-eyebrow">Admin account</p>
+    <h3 class="cred-name">Reset your password</h3>
+    <p class="panel-note">Enter the email address on your admin account. We will send a one-time reset code if it matches an account.</p>
+    <div class="field-dark">
+      <label for="resetAdminEmail">Admin email</label>
+      <input type="email" id="resetAdminEmail" autocomplete="email" placeholder="name@gmail.com">
+    </div>
+    <button class="btn-gradient" id="requestAdminResetCode">Send reset code</button>
+    <div id="adminResetFields" class="hidden">
+      <div class="field-dark">
+        <label for="resetAdminCode">Reset code</label>
+        <input type="text" id="resetAdminCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code">
+      </div>
+      <div class="field-dark">
+        <label for="resetAdminPassword">New password</label>
+        <input type="password" id="resetAdminPassword" autocomplete="new-password" placeholder="At least 8 characters">
+      </div>
+      <div class="field-dark">
+        <label for="resetAdminPasswordConfirm">Confirm new password</label>
+        <input type="password" id="resetAdminPasswordConfirm" autocomplete="new-password" placeholder="Re-enter new password">
+      </div>
+      <button class="btn-gradient" id="resetAdminPasswordBtn">Change password</button>
+    </div>
+    <p class="error-text" id="adminResetError"></p>
+    <p class="panel-note" id="adminResetMessage" aria-live="polite"></p>
+  </div>
+</div>
+
 <!-- Admin OTP verification -->
 <div class="overlay" id="otpOverlay">
   <div class="cred-modal">
@@ -217,7 +249,8 @@
       </div>
       <div class="field-dark">
         <label>Full name</label>
-        <input type="text" id="rosterName" placeholder="Last, First">
+        <input type="text" id="rosterName" placeholder="Last, First Jr.">
+        <p class="panel-note">Add a suffix at the end if applicable, for example: Dela Cruz, Juan Jr.</p>
       </div>
       <div class="field-dark">
         <label>Block</label>
@@ -249,7 +282,9 @@
     </div>
     <div class="field-dark">
       <label>Candidate student</label>
-      <select id="candStudent"><option value="">Select a student</option></select>
+      <input type="search" id="candStudentSearch" placeholder="Search name, student ID, or block" autocomplete="off" disabled>
+      <p class="panel-note" id="candidateSearchStatus" aria-live="polite">Load the roster to search for a student.</p>
+      <select id="candStudent" aria-label="Matching students" disabled><option value="">Search for a student first</option></select>
     </div>
     <div class="field-dark">
       <label>Party or group</label>
@@ -286,9 +321,10 @@
       <label>Username</label>
       <input type="text" id="admUsername2" placeholder="Username">
     </div>
-    <div class="field-dark">
+    <div class="field-dark password-field">
       <label>Password</label>
       <input type="password" id="admPassword2" placeholder="Password">
+      <button class="password-toggle" id="toggleAdminPassword" type="button" aria-label="Show password" title="Show password">&#128065;</button>
     </div>
     <p class="error-text" id="admError2"></p>
     <button class="btn-gradient" id="addAdminBtn">Add admin</button>

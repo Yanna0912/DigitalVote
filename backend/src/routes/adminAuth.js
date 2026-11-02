@@ -1,8 +1,9 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const { supabase } = require("../db");
-const { isGmail, asyncHandler } = require("../utils");
+const { genOtp, isGmail, asyncHandler } = require("../utils");
 const { signAdminToken } = require("../auth");
+const { sendMail, adminPasswordResetEmail } = require("../mailer");
 
 const router = express.Router();
 
@@ -71,6 +72,120 @@ router.post("/verify-otp", asyncHandler(async (req, res) => {
   return res.json({ token, admin: { id: admin.id, name: admin.name, email: admin.email, username: admin.username, party_list: admin.party_list } });
 
   
+}));
+
+router.post("/forgot-password", asyncHandler(async (req, res) => {
+  const email = String(req.body.email || "").trim();
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+    return res.status(400).json({ error: "Enter a valid admin email address." });
+  }
+
+  const { data: admin, error: adminError } = await supabase
+    .from("admins")
+    .select("id, name, email")
+    .ilike("email", email)
+    .maybeSingle();
+  if (adminError) return res.status(500).json({ error: "Couldn't check that admin email. Please try again." });
+  if (!admin) {
+    return res.json({ status: "sent", message: "If that email belongs to an admin account, a reset code has been sent." });
+  }
+
+  const { data: recentCode, error: recentCodeError } = await supabase
+    .from("admin_password_reset_codes")
+    .select("created_at")
+    .eq("admin_id", admin.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (recentCodeError) return res.status(500).json({ error: "Couldn't start password reset. Please try again." });
+  if (recentCode && Date.now() - new Date(recentCode.created_at).getTime() < 60_000) {
+    return res.status(429).json({ error: "Please wait a minute before requesting another reset code." });
+  }
+
+  const { error: clearError } = await supabase
+    .from("admin_password_reset_codes")
+    .delete()
+    .eq("admin_id", admin.id);
+  if (clearError) return res.status(500).json({ error: "Couldn't start password reset. Please try again." });
+
+  const code = genOtp();
+  const { data: resetRow, error: insertError } = await supabase
+    .from("admin_password_reset_codes")
+    .insert({ admin_id: admin.id, code, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() })
+    .select("id")
+    .single();
+  if (insertError) return res.status(500).json({ error: "Couldn't start password reset. Please try again." });
+
+  const mailResult = await sendMail({
+    to: admin.email,
+    ...adminPasswordResetEmail({ name: admin.name, code }),
+  });
+  if (!mailResult.delivered) {
+    const { error: cleanupError } = await supabase.from("admin_password_reset_codes").delete().eq("id", resetRow.id);
+    if (cleanupError) console.error("[auth] Failed to remove unsent admin password reset code:", cleanupError.message);
+    console.error("[auth] Admin password reset email failed:", mailResult.error || "unknown");
+    return res.status(502).json({ error: "We couldn't send the reset code. Please try again later." });
+  }
+
+  return res.json({ status: "sent", message: "If that email belongs to an admin account, a reset code has been sent." });
+}));
+
+router.post("/reset-password", asyncHandler(async (req, res) => {
+  const email = String(req.body.email || "").trim();
+  const code = String(req.body.code || "").trim();
+  const password = String(req.body.password || "");
+  if (!email || !/^\S+@\S+\.\S+$/.test(email) || !code || !password) {
+    return res.status(400).json({ error: "Enter your email, reset code, and new password." });
+  }
+  if (password.length < 8) return res.status(400).json({ error: "Password should be at least 8 characters." });
+
+  const { data: admin, error: adminError } = await supabase
+    .from("admins")
+    .select("id")
+    .ilike("email", email)
+    .maybeSingle();
+  if (adminError) return res.status(500).json({ error: "Couldn't verify the reset request. Please try again." });
+  if (!admin) return res.status(401).json({ error: "Invalid or expired reset code. Request a new code and try again." });
+
+  const { data: resetRow, error: codeError } = await supabase
+    .from("admin_password_reset_codes")
+    .select("id, code, expires_at, attempts")
+    .eq("admin_id", admin.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (codeError) return res.status(500).json({ error: "Couldn't verify the reset code. Please try again." });
+  if (!resetRow || new Date(resetRow.expires_at).getTime() < Date.now() || resetRow.attempts >= 5) {
+    return res.status(401).json({ error: "Invalid or expired reset code. Request a new code and try again." });
+  }
+  if (resetRow.code !== code) {
+    const attempts = resetRow.attempts + 1;
+    const { error: attemptError } = await supabase
+      .from("admin_password_reset_codes")
+      .update({ attempts })
+      .eq("id", resetRow.id);
+    if (attemptError) return res.status(500).json({ error: "Couldn't verify the reset code. Please try again." });
+    if (attempts >= 5) {
+      const { error: cleanupError } = await supabase.from("admin_password_reset_codes").delete().eq("id", resetRow.id);
+      if (cleanupError) console.error("[auth] Failed to remove admin reset code after failed attempts:", cleanupError.message);
+    }
+    return res.status(401).json({ error: "Invalid or expired reset code. Request a new code and try again." });
+  }
+
+  const { data: consumedCode, error: consumeError } = await supabase
+    .from("admin_password_reset_codes")
+    .delete()
+    .eq("id", resetRow.id)
+    .select("id")
+    .maybeSingle();
+  if (consumeError) return res.status(500).json({ error: "Couldn't use the reset code. Please try again." });
+  if (!consumedCode) return res.status(401).json({ error: "Invalid or expired reset code. Request a new code and try again." });
+
+  const password_hash = await bcrypt.hash(password, 10);
+  const { error: updateError } = await supabase.from("admins").update({ password_hash }).eq("id", admin.id);
+  if (updateError) return res.status(500).json({ error: "Couldn't update the password. Request a new reset code and try again." });
+
+  return res.json({ status: "reset", message: "Your password was changed. You can now log in." });
 }));
 
 module.exports = router;

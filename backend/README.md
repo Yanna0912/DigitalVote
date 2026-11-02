@@ -13,6 +13,11 @@ open/closed switch), and CSV roster import.
 2. Open **SQL Editor → New query**, paste the contents of `sql/schema.sql`,
    and run it. This creates all tables and locks them down with Row Level
    Security so only your backend (using the service role key) can touch them.
+   For an existing project, run the updated schema too; it adds a
+   case-insensitive unique index so each student email can be used once.
+   Resolve any duplicate student emails before rerunning if the index creation
+   reports existing duplicates. The schema also adds the separate admin
+   password-reset OTP table.
 3. Go to **Project Settings → API** and copy:
    - **Project URL** → `SUPABASE_URL`
    - **service_role key** (not the `anon` key — the backend needs to
@@ -67,8 +72,12 @@ project is Gmail with an **App Password**:
 When both SMTP credentials and a Resend API key are configured, SMTP is used
 unless `EMAIL_PROVIDER` explicitly selects another provider.
 
-If email delivery is not configured, registration and admin login return
-an error instead of exposing credentials or verification codes in the API.
+If email delivery is not configured, registration, admin login, and admin
+password recovery return an error instead of exposing credentials or
+verification codes in the API.
+Admin password recovery also sends a one-time email code; it expires after
+10 minutes and allows up to five code attempts. Apply the latest
+`sql/schema.sql` in Supabase to create its separate reset-code table.
 
 ## 3. Configure environment variables
 

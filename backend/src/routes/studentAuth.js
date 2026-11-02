@@ -46,6 +46,18 @@ router.post("/register", asyncHandler(async (req, res) => {
     return res.status(409).json({ error: "This Student ID already has voting credentials. Please log in or contact the election officer." });
   }
 
+  const { data: emailOwner, error: emailLookupError } = await supabase
+    .from("students")
+    .select("id_no")
+    .ilike("email", email)
+    .neq("id_no", id_no)
+    .limit(1)
+    .maybeSingle();
+  if (emailLookupError) return res.status(500).json({ error: "Database error checking your email address." });
+  if (emailOwner) {
+    return res.status(409).json({ error: "That email address is already associated with another student account. Use a different email." });
+  }
+
   const displayName = studentDisplayName(student);
   const username = genUsername(displayName, student.id_no);
   const plainPassword = genPassword();
@@ -58,7 +70,12 @@ router.post("/register", asyncHandler(async (req, res) => {
     .eq("registered", false)
     .select("id_no")
     .maybeSingle();
-  if (updateError) return res.status(500).json({ error: "Couldn't create your voting credentials." });
+  if (updateError) {
+    if (updateError.code === "23505" && updateError.message?.includes("idx_students_email_unique")) {
+      return res.status(409).json({ error: "That email address is already associated with another student account. Use a different email." });
+    }
+    return res.status(500).json({ error: "Couldn't create your voting credentials." });
+  }
   if (!registeredStudent) return res.status(409).json({ error: "This Student ID already has voting credentials." });
 
   const mailResult = await sendMail({

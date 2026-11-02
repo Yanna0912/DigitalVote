@@ -179,4 +179,20 @@ function adminOtpEmail({ name, code }) {
   };
 }
 
-module.exports = { sendMail, studentCredentialsEmail, adminOtpEmail };
+function adminPasswordResetEmail({ name, code }) {
+  const safeName = escapeHtml(name);
+  return {
+    subject: `Your CCDI Election Portal password reset code: ${code}`,
+    text:
+      `Hi ${name},\n\n` +
+      `Your password reset code is: ${code}\n\n` +
+      `It expires in 10 minutes. If you didn't request a password reset, you can ignore this email.`,
+    html:
+      `<p>Hi ${safeName},</p>` +
+      `<p>Your admin password reset code is:</p>` +
+      `<p style="font-size:28px;font-weight:700;letter-spacing:4px;">${code}</p>` +
+      `<p>It expires in 10 minutes. If you didn't request a password reset, you can ignore this email.</p>`,
+  };
+}
+
+module.exports = { sendMail, studentCredentialsEmail, adminOtpEmail, adminPasswordResetEmail };

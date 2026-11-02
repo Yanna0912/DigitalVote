@@ -131,6 +131,7 @@ const credMessage = document.getElementById("credMessage");
 
 const otpOverlay = document.getElementById("otpOverlay");
 const registrationOverlay = document.getElementById("registrationOverlay");
+const forgotPasswordOverlay = document.getElementById("forgotPasswordOverlay");
 
 let waitingPoll = null;
 
@@ -149,6 +150,10 @@ function renderEntryStep() {
     </div>`;
 
   document.getElementById("tabRegisterBtn").onclick = openRegistrationModal;
+  document.getElementById("forgotAdminPassword").onclick = (event) => {
+    event.preventDefault();
+    openAdminPasswordReset();
+  };
   document.getElementById("btnLogin").onclick = () => {
     handleLogin(document.getElementById("loginUser").value, document.getElementById("loginPass").value);
   };
@@ -228,11 +233,95 @@ function loginFormHtml() {
     </div>
     <p class="error-text" id="loginError"></p>
     <button class="btn btn-primary" id="btnLogin">Log in</button>
+    <p class="cred-note" style="text-align:right;margin:8px 0 0;"><a href="#" id="forgotAdminPassword">Forgot admin password?</a></p>
     <div class="signin-block">
       <p class="signin-block-title">No credentials yet?</p>
       <button class="btn-secondary" id="tabRegisterBtn" type="button">Register</button>
     </div>`;
 }
+
+function openAdminPasswordReset() {
+  document.getElementById("resetAdminEmail").value = "";
+  document.getElementById("resetAdminCode").value = "";
+  document.getElementById("resetAdminPassword").value = "";
+  document.getElementById("resetAdminPasswordConfirm").value = "";
+  document.getElementById("adminResetFields").classList.add("hidden");
+  document.getElementById("requestAdminResetCode").classList.remove("hidden");
+  document.getElementById("requestAdminResetCode").textContent = "Send reset code";
+  document.getElementById("adminResetError").textContent = "";
+  document.getElementById("adminResetMessage").textContent = "";
+  forgotPasswordOverlay.classList.add("show");
+  document.getElementById("resetAdminEmail").focus();
+}
+
+document.getElementById("forgotPasswordClose").onclick = () => forgotPasswordOverlay.classList.remove("show");
+forgotPasswordOverlay.addEventListener("click", (event) => {
+  if (event.target === forgotPasswordOverlay) forgotPasswordOverlay.classList.remove("show");
+});
+document.getElementById("requestAdminResetCode").onclick = async () => {
+  const email = document.getElementById("resetAdminEmail").value.trim();
+  const errorEl = document.getElementById("adminResetError");
+  const messageEl = document.getElementById("adminResetMessage");
+  const button = document.getElementById("requestAdminResetCode");
+  errorEl.textContent = "";
+  messageEl.textContent = "";
+  if (!email) {
+    errorEl.textContent = "Enter the email address on your admin account.";
+    return;
+  }
+
+  button.disabled = true;
+  try {
+    const data = await api("/auth/admin/forgot-password", { method: "POST", body: { email } });
+    document.getElementById("adminResetFields").classList.remove("hidden");
+    button.textContent = "Send another code";
+    messageEl.textContent = data.message;
+    document.getElementById("resetAdminCode").focus();
+  } catch (err) {
+    errorEl.textContent = err.error || "Couldn't send a reset code. Please try again.";
+  } finally {
+    button.disabled = false;
+  }
+};
+
+document.getElementById("resetAdminPasswordBtn").onclick = async () => {
+  const email = document.getElementById("resetAdminEmail").value.trim();
+  const code = document.getElementById("resetAdminCode").value.trim();
+  const password = document.getElementById("resetAdminPassword").value;
+  const confirmation = document.getElementById("resetAdminPasswordConfirm").value;
+  const errorEl = document.getElementById("adminResetError");
+  const messageEl = document.getElementById("adminResetMessage");
+  const button = document.getElementById("resetAdminPasswordBtn");
+  errorEl.textContent = "";
+  messageEl.textContent = "";
+  if (!code || !password || !confirmation) {
+    errorEl.textContent = "Enter the reset code and both password fields.";
+    return;
+  }
+  if (password !== confirmation) {
+    errorEl.textContent = "The passwords do not match.";
+    return;
+  }
+  if (password.length < 8) {
+    errorEl.textContent = "Password should be at least 8 characters.";
+    return;
+  }
+
+  button.disabled = true;
+  try {
+    const data = await api("/auth/admin/reset-password", {
+      method: "POST",
+      body: { email, code, password },
+    });
+    document.getElementById("adminResetFields").classList.add("hidden");
+    document.getElementById("requestAdminResetCode").classList.add("hidden");
+    messageEl.textContent = data.message;
+  } catch (err) {
+    errorEl.textContent = err.error || "Couldn't change the password. Please try again.";
+  } finally {
+    button.disabled = false;
+  }
+};
 
 async function handleLogin(username, password) {
   const errorEl = document.getElementById("loginError");
@@ -876,23 +965,67 @@ async function renderCandidateList() {
 }
 
 const addCandidateOverlay = document.getElementById("addCandidateOverlay");
+const candidateSearch = document.getElementById("candStudentSearch");
+const candidateStudentSelect = document.getElementById("candStudent");
+const candidateSearchStatus = document.getElementById("candidateSearchStatus");
+const MAX_CANDIDATE_SEARCH_RESULTS = 100;
+
+function renderCandidateStudentSearch() {
+  const query = candidateSearch.value.trim().toLocaleLowerCase();
+  candidateStudentSelect.value = "";
+
+  if (query.length < 2) {
+    candidateStudentSelect.innerHTML = `<option value="">Type at least 2 characters to search</option>`;
+    candidateStudentSelect.disabled = true;
+    candidateSearchStatus.textContent = cachedRoster.length
+      ? "Search by student name, ID, or block."
+      : "No students are available in the roster.";
+    return;
+  }
+
+  const matches = cachedRoster.filter((student) =>
+    [student.name, student.id_no, student.block]
+      .some((value) => String(value || "").toLocaleLowerCase().includes(query))
+  );
+  const visibleMatches = matches.slice(0, MAX_CANDIDATE_SEARCH_RESULTS);
+  candidateStudentSelect.innerHTML = visibleMatches.length
+    ? `<option value="">Select a student (${matches.length} match${matches.length === 1 ? "" : "es"})</option>` +
+      visibleMatches.map((student) =>
+        `<option value="${escapeHtml(student.id_no)}">${escapeHtml(student.name)} | ${escapeHtml(student.id_no)}${student.block ? ` | ${escapeHtml(student.block)}` : ""}</option>`
+      ).join("")
+    : `<option value="">No matching students</option>`;
+  candidateStudentSelect.disabled = visibleMatches.length === 0;
+
+  if (!matches.length) {
+    candidateSearchStatus.textContent = "No students match. Try a different name, ID, or block.";
+  } else if (matches.length > MAX_CANDIDATE_SEARCH_RESULTS) {
+    candidateSearchStatus.textContent = `Showing the first ${MAX_CANDIDATE_SEARCH_RESULTS} of ${matches.length} matches. Add more search terms to narrow the results.`;
+  } else {
+    candidateSearchStatus.textContent = `${matches.length} student${matches.length === 1 ? "" : "s"} found.`;
+  }
+}
+
+candidateSearch.addEventListener("input", renderCandidateStudentSearch);
+
 document.getElementById("openAddCandidateModal").onclick = async () => {
   const errorEl = document.getElementById("candidateRosterError");
-  const select = document.getElementById("candStudent");
   errorEl.textContent = "";
-  select.disabled = true;
-  select.innerHTML = `<option value="">Loading student roster...</option>`;
+  candidateSearch.value = "";
+  candidateSearch.disabled = true;
+  candidateStudentSelect.disabled = true;
+  candidateStudentSelect.innerHTML = `<option value="">Loading student roster...</option>`;
+  candidateSearchStatus.textContent = "Loading student roster...";
   addCandidateOverlay.classList.add("show");
   try {
     const data = await api("/admin/students", { token: adminToken });
     cachedRoster = data.students || [];
-    select.innerHTML = `<option value="">Select a student</option>` + cachedRoster.map((student) =>
-      `<option value="${escapeHtml(student.id_no)}">${escapeHtml(student.name)} | ${escapeHtml(student.id_no)}${student.block ? ` | ${escapeHtml(student.block)}` : ""}</option>`
-    ).join("");
-    select.disabled = cachedRoster.length === 0;
+    candidateSearch.disabled = cachedRoster.length === 0;
+    renderCandidateStudentSearch();
     if (!cachedRoster.length) errorEl.textContent = "Add students to the roster before adding candidates.";
   } catch (err) {
-    select.innerHTML = `<option value="">Roster unavailable</option>`;
+    candidateSearch.disabled = true;
+    candidateStudentSelect.innerHTML = `<option value="">Roster unavailable</option>`;
+    candidateSearchStatus.textContent = "";
     errorEl.textContent = err.error || "Couldn't load the student roster.";
   }
 };
@@ -914,7 +1047,8 @@ document.getElementById("addCandidateBtn").onclick = async () => {
     const photo = photoFile ? await fileAsDataUrl(photoFile) : "";
     await api("/admin/candidates", { method: "POST", token: adminToken, body: { position, id_no, party, photo } });
     document.getElementById("candPosition").value = "";
-    document.getElementById("candStudent").value = "";
+    candidateSearch.value = "";
+    candidateStudentSelect.value = "";
     document.getElementById("candParty").value = "";
     document.getElementById("candPhoto").value = "";
     renderCandidateList(); renderResultsPanel();
@@ -976,6 +1110,15 @@ async function renderAdminList() {
 }
 
 const addAdminOverlay = document.getElementById("addAdminOverlay");
+document.getElementById("toggleAdminPassword").onclick = () => {
+  const passwordInput = document.getElementById("admPassword2");
+  const toggleButton = document.getElementById("toggleAdminPassword");
+  const isVisible = passwordInput.type === "text";
+  passwordInput.type = isVisible ? "password" : "text";
+  toggleButton.innerHTML = isVisible ? "&#128065;" : "&#128065;&#xfe0e;";
+  toggleButton.setAttribute("aria-label", isVisible ? "Show password" : "Hide password");
+  toggleButton.setAttribute("title", isVisible ? "Show password" : "Hide password");
+};
 document.getElementById("openAddAdminModal").onclick = () => {
   document.getElementById("admError2").textContent = "";
   addAdminOverlay.classList.add("show");

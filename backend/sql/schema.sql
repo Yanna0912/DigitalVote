@@ -32,6 +32,9 @@ create table if not exists students (
 );
 
 create index if not exists idx_students_email on students (lower(email));
+create unique index if not exists idx_students_email_unique
+  on students (lower(btrim(email)))
+  where email is not null and btrim(email) <> '';
 
 -- ---------------------------------------------------------------------
 -- admins
@@ -57,6 +60,17 @@ create table if not exists admin_otp_codes (
   admin_id    uuid not null references admins(id) on delete cascade,
   code        text not null,
   expires_at  timestamptz not null,
+  created_at  timestamptz not null default now()
+);
+
+-- Separate one-time codes for admin password recovery; kept separate from
+-- login OTPs so a reset code can never be used to sign in.
+create table if not exists admin_password_reset_codes (
+  id          uuid primary key default gen_random_uuid(),
+  admin_id    uuid not null references admins(id) on delete cascade,
+  code        text not null,
+  expires_at  timestamptz not null,
+  attempts    integer not null default 0,
   created_at  timestamptz not null default now()
 );
 
@@ -110,6 +124,7 @@ insert into settings (key, value) values ('voting_open', 'false')
 alter table students enable row level security;
 alter table admins enable row level security;
 alter table admin_otp_codes enable row level security;
+alter table admin_password_reset_codes enable row level security;
 alter table candidates enable row level security;
 alter table votes enable row level security;
 alter table settings enable row level security;
