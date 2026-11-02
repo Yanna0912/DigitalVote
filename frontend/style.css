@@ -692,7 +692,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .dashboard-header-row h2{font-family:'Sora',sans-serif; font-size:20px; color:var(--#ffff);}
 .dashboard-overview{display:grid; grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr); gap:14px; align-items:stretch; margin-bottom:14px;}
 .dashboard-metrics{display:grid; grid-template-rows:minmax(118px,1fr) minmax(96px,auto); gap:10px; min-width:0;}
-.metric-card-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;}
+.metric-card-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;}
 .stat-card{
   background:linear-gradient(180deg, var(--panel-2), var(--panel));
   border:1px solid var(--line); border-radius:14px; padding:14px;
