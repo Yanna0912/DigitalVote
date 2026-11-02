@@ -321,10 +321,12 @@
       <label>Username</label>
       <input type="text" id="admUsername2" placeholder="Username">
     </div>
-    <div class="field-dark password-field">
+    <div class="field-dark">
       <label>Password</label>
-      <input type="password" id="admPassword2" placeholder="Password">
-      <button class="password-toggle" id="toggleAdminPassword" type="button" aria-label="Show password" title="Show password">&#128065;</button>
+      <div class="password-input-wrap">
+        <input type="password" id="admPassword2" placeholder="Password">
+        <button class="password-toggle" id="toggleAdminPassword" type="button" aria-label="Show password" title="Show password">&#128065;</button>
+      </div>
     </div>
     <p class="error-text" id="admError2"></p>
     <button class="btn-gradient" id="addAdminBtn">Add admin</button>

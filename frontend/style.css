@@ -277,7 +277,10 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .field-dark select{color-scheme:dark; color:var(--ink);}
 .field-dark select:disabled{opacity:.65; cursor:wait;}
 .password-field{position:relative;}
+.password-input-wrap{position:relative;}
 .password-field input{padding-right:50px;}
+.password-input-wrap input{padding-right:50px;}
+.password-input-wrap .password-toggle{top:50%;}
 .password-toggle {
   position: absolute;
   top: 50%;
@@ -449,6 +452,8 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .signin-block-title{margin:0 0 4px; color:var(--ink); font-size:13px; font-weight:700;}
 .signin-block-note{margin:0 0 10px; color:var(--muted); font-size:12px; line-height:1.45;}
 .signin-block .btn-secondary{margin-top:0;}
+.forgot-password-link{text-align:right; margin:-8px 0 12px; font-size:12.5px;}
+.forgot-password-link a{color:var(--blue-light);}
 
 .error-text{
   color:var(--red); font-size:12.5px; margin:-6px 0 12px; min-height:16px;
