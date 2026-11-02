@@ -260,7 +260,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .field label, .field-dark label{
   display:block; font-size:11.5px; font-weight:600; color:var(--muted); margin-bottom:6px; letter-spacing:.2px;
 }
-.field input, .field-dark input{
+.field input, .field-dark input, .field-dark select{
   width:100%;
   padding:14px 16px;
   border-radius:12px;
@@ -273,7 +273,9 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   transition:border-color .15s, background .15s;
 }
 .field input::placeholder, .field-dark input::placeholder{color:#787b8d;}
-.field input:focus, .field-dark input:focus{border-color:var(--blue); background:rgb(36, 39, 46);}
+.field input:focus, .field-dark input:focus, .field-dark select:focus{border-color:var(--blue); background:rgb(36, 39, 46);}
+.field-dark select{color-scheme:dark; color:var(--ink);}
+.field-dark select:disabled{opacity:.65; cursor:wait;}
 .password-field{position:relative;}
 .password-field input{padding-right:50px;}
 .password-toggle {
@@ -593,8 +595,8 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .cred-modal-lg{width:420px;}
 .registration-modal{
   width:min(680px, calc(100vw - 32px));
-  max-height:none;
-  overflow:visible;
+  max-height:calc(100vh - 40px);
+  overflow-y:auto;
   padding:24px 28px;
 }
 .registration-modal::-webkit-scrollbar{display:none;}
@@ -602,26 +604,6 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .registration-modal .field-dark{margin-bottom:10px;}
 .registration-grid{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:0 12px;}
 .registration-grid .field-dark{min-width:0;}
-.registration-block-field{grid-column:auto;}
-.registration-photo-field input{padding:10px;}
-.registration-photo-field small{display:block; color:var(--#ffff); font-size:11px; line-height:1.4; margin-top:6px;}
-.photo-choice-row{display:flex; gap:10px;}
-.photo-choice{
-  flex:1; display:block; padding:11px 12px; border:1px solid var(--line-strong);
-  border-radius:10px; background:rgba(255,255,255,.04); color:var(--ink);
-  text-align:center; font-size:12px; font-weight:700; cursor:pointer;
-}
-.photo-choice:hover{border-color:var(--blue-light); background:rgba(255,255,255,.08);}
-.photo-choice input{display:none;}
-.registration-photo-preview{
-  position:relative; width:100%; height:110px; margin-top:10px;
-  display:flex; align-items:center; justify-content:center;
-  overflow:hidden; border:1px dashed var(--line-strong); border-radius:12px;
-  background:rgba(255,255,255,.025); color:var(--muted); font-size:12px;
-}
-.registration-photo-preview img{display:none; width:100%; height:100%; object-fit:contain;}
-.registration-photo-preview.has-image span{display:none;}
-.registration-photo-preview.has-image img{display:block;}
 .cred-close{
   position:absolute; top:16px; right:16px;
 }
@@ -644,28 +626,6 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .cred-note a{color:var(--blue-light);}
 
 .panel-note{font-size:12.5px; color:var(--muted); line-height:1.55; margin:0 0 14px;}
-
-.pending-registration{
-  display:flex; align-items:flex-start; gap:16px;
-  padding:16px 0; border-top:1px solid var(--line);
-}
-.pending-registration:first-child{border-top:0; padding-top:0;}
-.pending-registration-photo{
-  width:128px; height:92px; flex:0 0 128px;
-  display:flex; align-items:center; justify-content:center;
-  overflow:hidden; border:1px solid var(--line); border-radius:10px;
-  background:rgba(255,255,255,.04); color:var(--muted); font-size:11px;
-}
-.pending-registration-photo img{width:100%; height:100%; object-fit:cover;}
-.pending-registration-details{min-width:0; flex:1;}
-.pending-registration-details h4{margin:0 0 5px; color:var(--ink); font-size:15px;}
-.pending-registration-details p{margin:3px 0; color:var(--muted); font-size:12px; line-height:1.4; word-break:break-word;}
-.pending-registration-actions{display:flex; gap:8px; margin-top:10px;}
-.pending-registration-actions .btn-small{padding:8px 12px; margin:0;}
-.pending-registration{transition:opacity .2s ease, transform .2s ease;}
-.pending-registration{animation:pending-registration-enter .22s ease both;}
-.pending-registration.is-processing{opacity:.55; transform:translateY(-2px);}
-@keyframes pending-registration-enter{from{opacity:0; transform:translateY(6px);}to{opacity:1; transform:translateY(0);}}
 
 .icon-btn{
   border:1px solid var(--line); background:rgba(255,255,255,.04); color:var(--muted);
@@ -919,8 +879,6 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   .registration-grid{grid-template-columns:1fr;}
   .registration-block-field{grid-column:auto;}
   .photo-choice-row{flex-direction:column;}
-  .pending-registration{flex-direction:column;}
-  .pending-registration-photo{width:100%; height:180px; flex-basis:180px;}
 }
 
 @media (max-width:700px), (max-height:700px){

@@ -25,9 +25,9 @@ is running and `config.js` points at it.
 
 ## How it works — students
 
-1. **Register** — Student ID + email. First time, this saves the email
-   against that ID, generates a username/password, and emails them.
-   After that, the same ID + email just tells you to log in instead.
+1. **Register** — Enter Student ID, first/last name, suffix if listed,
+   and email. The identity must match the roster; credentials are
+   generated and emailed immediately when they do.
 2. **Log in** — username + password (from the email). Same form is also
    used by admins — the backend tells the frontend which dashboard to show.
 3. If voting isn't open yet, a waiting screen appears and moves on by
@@ -38,7 +38,7 @@ is running and `config.js` points at it.
 
 Same login form. A correct admin password triggers an **emailed OTP**
 step before the dashboard opens — the code goes to the admin's Gmail via
-the backend's SMTP config. New officers can self-register via the "Sign
+the configured email provider. New officers can self-register via the "Sign
 up for admin access" link, or an existing admin can add one from the
 **Admins** tab.
 
@@ -47,6 +47,12 @@ The dashboard (**Election Portal**) has tabs for Candidates, Students
 not tied to any student), Monitoring, Results, and Admins. The
 **Election status** card controls whether students can reach the ballot
 at all.
+
+Candidates are selected from the student roster, which assigns their
+name and block. Add candidates under the position **Representative** to
+create course-scoped races: students see only representatives whose
+block has the same course prefix (for example, BSCS-1 and BSCS-3 share
+the BSCS representative race).
 
 ## Deploying
 

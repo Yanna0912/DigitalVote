@@ -9,11 +9,11 @@ create extension if not exists pgcrypto;
 
 -- ---------------------------------------------------------------------
 -- students
--- Imported from the school's CSV (id_no, name, block). New applicants add
--- their details and ID photo, then receive credentials only after approval.
+-- Imported from the school's CSV (id_no, name, block). Students receive
+-- credentials after their submitted ID, name, and block match the roster.
 -- Column order: id_no, first_name, last_name, suffix, block, email,
--- id_photo, approval_status, approval_note, username, password_hash,
--- registered, registered_at, voted, voted_at, created_at.
+-- username, password_hash, registered, registered_at, voted, voted_at,
+-- created_at.
 -- ---------------------------------------------------------------------
 create table if not exists students (
   id_no          text primary key check (length(trim(id_no)) > 0),
@@ -22,9 +22,6 @@ create table if not exists students (
   suffix         text,
   block          text,
   email          text,
-  id_photo       text,
-  approval_status text not null default 'not_submitted',
-  approval_note  text,
   username       text unique,
   password_hash  text,
   registered     boolean not null default false,
@@ -117,15 +114,10 @@ alter table candidates enable row level security;
 alter table votes enable row level security;
 alter table settings enable row level security;
 
--- Registration review fields for existing installations.
+-- Name fields for existing installations.
 alter table students add column if not exists first_name text;
 alter table students add column if not exists last_name text;
 alter table students add column if not exists suffix text;
-alter table students add column if not exists id_photo text;
-alter table students add column if not exists approval_status text not null default 'not_submitted';
-alter table students add column if not exists approval_note text;
-update students set approval_status = 'not_submitted'
-where approval_status = 'approved' and registered = false and email is null;
 
 -- Migrate older installations that still have the combined name column.
 do $$

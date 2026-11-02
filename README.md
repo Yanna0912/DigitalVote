@@ -27,7 +27,7 @@ render.yaml  one-click backend deploy blueprint for Render
 2. **Backend:**
    ```
    cd backend
-   cp .env.example .env      # fill in Supabase keys, JWT_SECRET, SMTP (optional)
+   cp .env.example .env      # fill in Supabase keys, JWT_SECRET, and email provider settings
    npm install
    npm start
    ```
@@ -42,11 +42,10 @@ render.yaml  one-click backend deploy blueprint for Render
    npx serve .
    ```
    `config.js` already points at `http://localhost:4000/api` by default.
-5. Open the frontend, click **"Sign up for admin access"** to create your
-   first admin account, log in (check your email for the OTP, or read it
-   from the "dev preview" note if SMTP isn't configured yet), open
-   **Election status → Voting OPEN**, then test registering as a student
-   using an ID from the sample CSV.
+5. Open the frontend, create your first admin account, and log in (the
+   admin OTP is emailed). Open **Election status → Voting OPEN**, then
+   register a student with the matching name, ID, and block from the sample
+   roster.
 
 Full details, including SMTP setup and every environment variable, are in
 `backend/README.md`. Frontend-specific notes are in `frontend/README.md`.
@@ -72,8 +71,10 @@ Full details, including SMTP setup and every environment variable, are in
   it holds even under concurrent requests from different devices.
 - **Voting only when open:** checked server-side on both `GET /api/ballot`
   and `POST /api/vote`, not just hidden in the UI.
-- **Email must match the ID on file:** enforced in
-  `POST /api/auth/student/lookup` before any credentials are generated.
-- **Passwords:** hashed with bcrypt everywhere, never logged or stored
-  in plain text (the one exception is the clearly-labeled "dev preview"
-  shown only when no SMTP is configured, for local testing).
+- **Roster verification:** ID, first name, last name, and suffix
+  are checked against the roster before credentials are generated and
+  emailed to the address entered by the student.
+- **Course representative races:** only students whose block has the
+  candidate's course prefix can see or vote for that representative.
+- **Passwords:** hashed with bcrypt everywhere, never returned by the API
+  or stored in plain text.

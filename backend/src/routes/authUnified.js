@@ -38,7 +38,7 @@ router.post("/login", asyncHandler(async (req, res) => {
     const mailResult = await sendMail({ to: admin.email, ...mail });
     if (!mailResult.delivered) {
       await supabase.from("admin_otp_codes").delete().eq("id", otpRow.id);
-      console.error(`[auth] Admin OTP email failed for \({admin.email}:\){mailResult.reason || "unknown"} ${mailResult.error || ""}`);
+      console.error(`[auth] Admin OTP email failed for ${admin.email}: ${mailResult.error || "unknown"}`);
       
       // Generic error response without referencing Mailjet
       return res.status(502).json({
@@ -59,11 +59,7 @@ router.post("/login", asyncHandler(async (req, res) => {
     .from("students").select("*").ilike("username", username).maybeSingle();
   if (studentError) return res.status(500).json({ error: "Database error during login." });
 
-  if (student && student.approval_status === "pending") {
-    return res.status(403).json({ error: "Your registration is still waiting for admin approval." });
-  }
-
-  if (student && student.password_hash && (await bcrypt.compare(password, student.password_hash))) {
+  if (student && student.registered && student.password_hash && (await bcrypt.compare(password, student.password_hash))) {
     const { data: setting } = await supabase.from("settings").select("value").eq("key", "voting_open").maybeSingle();
     const votingOpen = setting?.value === "true";
     const token = signStudentToken(student);

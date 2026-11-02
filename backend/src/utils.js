@@ -1,3 +1,5 @@
+const { randomInt } = require("crypto");
+
 function genUsername(name, idNo) {
   const first = (name.split(",")[1] || "").trim().split(" ")[0] || "voter";
   const last = (name.split(",")[0] || "").trim().split(" ")[0] || "ccdi";
@@ -34,12 +36,12 @@ function studentNameParts(name) {
 function genPassword(length = 10) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
   let out = "";
-  for (let i = 0; i < length; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < length; i++) out += chars[randomInt(chars.length)];
   return out;
 }
 
 function genOtp() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(randomInt(100000, 1000000));
 }
 
 function maskEmail(email) {
@@ -62,23 +64,4 @@ function isGmail(email) {
 function asyncHandler(fn) {
   return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 }
-document.addEventListener("DOMContentLoaded", () => {
-  const isAdminLoggedIn = localStorage.getItem("isAdminLoggedIn") === "true";
-
-  if (isAdminLoggedIn) {
-    // Skip login forms and immediately show the admin view
-    renderAdminDashboard();
-  } else {
-    // Show default voter login / entry step
-    renderEntryStep();
-  }
-});
-function requireAdmin(req, res, next) {
-  if (req.session && req.session.user && req.session.user.isAdmin) {
-    return next(); // Session exists on refresh, render page
-  }
-  return res.redirect('/login');
-}
-
-
 module.exports = { genUsername, studentDisplayName, studentNameParts, genPassword, genOtp, maskEmail, isGmail, asyncHandler };

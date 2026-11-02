@@ -50,23 +50,6 @@ async function apiUpload(path, file, token) {
   return data;
 }
 
-async function apiMultipart(path, formData, token) {
-  let res;
-  try {
-    res = await fetch(`${API_BASE}${path}`, {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: formData,
-    });
-  } catch (_networkErr) {
-    throw { error: "Can't reach the server. Check your connection and try again." };
-  }
-  let data = {};
-  try { data = await res.json(); } catch (_parseErr) { /* empty body is fine */ }
-  if (!res.ok) throw data && data.error ? data : { error: "Something went wrong. Please try again." };
-  return data;
-}
-
 /* ---------------- session state ---------------- */
 let studentToken = sessionStorage.getItem("ccdi_student_token") || null;
 let adminToken = sessionStorage.getItem("ccdi_admin_token") || null;
@@ -125,24 +108,14 @@ const credOverlay = document.getElementById("credOverlay");
 const credEyebrow = document.getElementById("credEyebrow");
 const credName = document.getElementById("credName");
 const credMessage = document.getElementById("credMessage");
-const credDevBox = document.getElementById("credDevBox");
-const credUser = document.getElementById("credUser");
-const credPass = document.getElementById("credPass");
 
 const otpOverlay = document.getElementById("otpOverlay");
 const registrationOverlay = document.getElementById("registrationOverlay");
 
-let activeTab = "register";
 let waitingPoll = null;
-let lastDevCredentials = null;
-let selectedRegistrationPhoto = null;
-let registrationPhotoPreviewUrl = null;
 
 /* ---------------- Step: REGISTER / LOG IN ---------------- */
-function renderEntryStep(tab) {
-  // Pass tab directly; fall back to "login" if not explicitly specified
-  activeTab = tab || "login";
-  
+function renderEntryStep() {
   publicPage.classList.remove("hidden");
   voteFullscreen.classList.remove("show");
   voterSection.classList.remove("hidden");
@@ -151,51 +124,26 @@ function renderEntryStep(tab) {
   panel.innerHTML = `
     <div class="panel-content">
       <p class="eyebrow">Voter access</p>
-      <h2 class="step-title">${activeTab === "register" ? "Register to vote" : "Log in to vote"}</h2>
-      ${activeTab === "register" ? registerFormHtml() : loginFormHtml()}
+      <h2 class="step-title">Log in to vote</h2>
+      ${loginFormHtml()}
     </div>`;
 
-  if (activeTab === "register") {
-    document.getElementById("btnRegister").onclick = () => {
-      handleRegister(document.getElementById("regId").value, document.getElementById("regEmail").value);
-    };
-    document.getElementById("tabLoginBtn").onclick = () => renderEntryStep("login");
-  } else {
-    document.getElementById("tabRegisterBtn").onclick = openRegistrationModal;
-    document.getElementById("btnLogin").onclick = () => {
-      handleLogin(document.getElementById("loginUser").value, document.getElementById("loginPass").value);
-    };
-    document.getElementById("toggleLoginPassword").onclick = () => {
-      const passwordInput = document.getElementById("loginPass");
-      const toggleButton = document.getElementById("toggleLoginPassword");
-      const isVisible = passwordInput.type === "text";
-      passwordInput.type = isVisible ? "password" : "text";
-      toggleButton.innerHTML = isVisible ? "&#128065;" : "&#128065;&#xfe0e;";
-      toggleButton.setAttribute("aria-label", isVisible ? "Show password" : "Hide password");
-      toggleButton.setAttribute("title", isVisible ? "Show password" : "Hide password");
-    };
-    document.getElementById("loginPass").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") document.getElementById("btnLogin").click();
-    });
-  }
-}
-
-function registerFormHtml() {
-  return `
-    <div class="field">
-      <input type="text" id="regId" placeholder="Student ID, e.g. 21-0143" autocomplete="off">
-    </div>
-    <div class="field">
-      <input type="email" id="regEmail" placeholder="Your email" autocomplete="off">
-    </div>
-    <p class="error-text" id="regError"></p>
-    <button class="btn btn-primary" id="btnRegister">Register &amp; get my login</button>
-    <p class="panel-note" style="margin-top:14px;">No credentials yet? This saves your email against your Student ID and emails you a username and password.</p>
-    <div class="signin-block">
-      <p class="signin-block-title">Have a login?</p>
-      <p class="signin-block-note">Use your username and password to access voting.</p>
-      <button class="btn-secondary" id="tabLoginBtn" type="button">Sign in</button>
-    </div>`;
+  document.getElementById("tabRegisterBtn").onclick = openRegistrationModal;
+  document.getElementById("btnLogin").onclick = () => {
+    handleLogin(document.getElementById("loginUser").value, document.getElementById("loginPass").value);
+  };
+  document.getElementById("toggleLoginPassword").onclick = () => {
+    const passwordInput = document.getElementById("loginPass");
+    const toggleButton = document.getElementById("toggleLoginPassword");
+    const isVisible = passwordInput.type === "text";
+    passwordInput.type = isVisible ? "password" : "text";
+    toggleButton.innerHTML = isVisible ? "&#128065;" : "&#128065;&#xfe0e;";
+    toggleButton.setAttribute("aria-label", isVisible ? "Show password" : "Hide password");
+    toggleButton.setAttribute("title", isVisible ? "Show password" : "Hide password");
+  };
+  document.getElementById("loginPass").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("btnLogin").click();
+  });
 }
 
 function openRegistrationModal() {
@@ -216,18 +164,19 @@ async function submitRegistration() {
   }
   const button = document.getElementById("submitRegistration");
   button.disabled = true;
-  const form = new FormData();
-  form.append("first_name", values.registrationFirstName);
-  form.append("last_name", values.registrationLastName);
-  form.append("suffix", document.getElementById("registrationSuffix").value.trim());
-  form.append("id_no", values.registrationStudentId);
-  
-  form.append("email", values.registrationEmail);
-
   try {
-    const data = await apiMultipart("/auth/student/register", form);
+    const data = await api("/auth/student/register", {
+      method: "POST",
+      body: {
+        first_name: values.registrationFirstName,
+        last_name: values.registrationLastName,
+        suffix: document.getElementById("registrationSuffix").value.trim(),
+        id_no: values.registrationStudentId,
+        email: values.registrationEmail,
+      },
+    });
     registrationOverlay.classList.remove("show");
-    alert(data.message || "Registration submitted. Check your email for your credentials.");
+    showCredentialResult(data);
   } catch (err) {
     errorEl.textContent = err.error || "Couldn't submit your registration.";
   } finally {
@@ -236,7 +185,7 @@ async function submitRegistration() {
 }
 function closeRegistrationModal() {
   registrationOverlay.classList.remove("show");
-  renderEntryStep("login");
+  renderEntryStep();
 }
 
 document.getElementById("registrationClose")?.addEventListener("click", closeRegistrationModal);
@@ -263,27 +212,6 @@ function loginFormHtml() {
       <p class="signin-block-title">No credentials yet?</p>
       <button class="btn-secondary" id="tabRegisterBtn" type="button">Register</button>
     </div>`;
-}
-
-async function handleRegister(idInput, emailInput) {
-  const errorEl = document.getElementById("regError");
-  errorEl.textContent = "";
-  const id_no = String(idInput || "").trim();
-  const email = String(emailInput || "").trim();
-  if (!id_no || !email) {
-    errorEl.textContent = "Please enter both your Student ID and email.";
-    return;
-  }
-  const btn = document.getElementById("btnRegister");
-  btn.disabled = true;
-  try {
-    const data = await api("/auth/student/lookup", { method: "POST", body: { id_no, email } });
-    showCredentialResult(data);
-  } catch (err) {
-    errorEl.textContent = err.error || "Something went wrong. Please try again.";
-  } finally {
-    btn.disabled = false;
-  }
 }
 
 async function handleLogin(username, password) {
@@ -318,80 +246,18 @@ function proceedAfterAuth(student, votingOpen) {
   renderVoteStep();
 }
 
-/* ---------------- registration result pop-up (email confirmation / dev fallback) ---------------- */
+/* ---------------- registration result pop-up ---------------- */
 function showCredentialResult(data) {
-  const alreadyRegistered = data.status === "already_registered";
-  credEyebrow.textContent = alreadyRegistered ? "Already registered" : "Registration";
-  credName.textContent = alreadyRegistered ? "You're already registered" : "Check your email";
+  credEyebrow.textContent = "Registration complete";
+  credName.textContent = "Check your email";
   credMessage.textContent = data.message || "";
-
-  lastDevCredentials = data.devCredentials || null;
-  if (lastDevCredentials) {
-    credUser.textContent = lastDevCredentials.username;
-    credPass.textContent = lastDevCredentials.password;
-    credDevBox.classList.remove("hidden");
-  } else {
-    credDevBox.classList.add("hidden");
-  }
   credOverlay.classList.add("show");
 }
 
 document.getElementById("credClose").onclick = () => {
   credOverlay.classList.remove("show");
-  renderEntryStep("login");
-  if (lastDevCredentials) {
-    document.getElementById("loginUser").value = lastDevCredentials.username;
-    document.getElementById("loginPass").value = lastDevCredentials.password;
-  }
+  renderEntryStep();
 };
-
-document.querySelectorAll(".copy-btn").forEach((btn) => {
-  let timeoutId = null;
-
-  btn.addEventListener("click", async () => {
-    const targetEl = document.getElementById(btn.dataset.copyTarget);
-    if (!targetEl) return;
-
-    // Support both input/textarea values and text elements
-    const textToCopy = targetEl.value !== undefined ? targetEl.value : targetEl.innerText;
-
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(textToCopy);
-      } else {
-        const textarea = document.createElement("textarea");
-        textarea.value = textToCopy;
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
-      }
-
-      // Handle UI feedback
-      btn.classList.add("copied");
-      
-      // Preserve original text even on multiple rapid clicks
-      if (!btn.dataset.originalText) {
-        btn.dataset.originalText = btn.textContent;
-      }
-      btn.textContent = "Copied";
-
-      // Clear any active timeout to prevent race conditions
-      if (timeoutId) clearTimeout(timeoutId);
-
-      timeoutId = setTimeout(() => {
-        btn.classList.remove("copied");
-        btn.textContent = btn.dataset.originalText;
-        delete btn.dataset.originalText;
-      }, 1500);
-
-    } catch (err) {
-      console.error("Failed to copy text: ", err);
-    }
-  });
-});
 
 /* ---------------- Full-screen voting experience ---------------- */
 /* waiting / ballot / confirmation / already-voted all render here,   */
@@ -417,11 +283,11 @@ async function renderVoteStep() {
   }
 
   const racesHtml = ballot.map((race, ri) => `
-    <fieldset class="race" data-position="${race.position}">
-      <legend class="eyebrow" style="margin-bottom:8px;">${race.position}</legend>
+    <fieldset class="race">
+      <legend class="eyebrow" style="margin-bottom:8px;">${escapeHtml(race.position)}</legend>
       ${race.candidates.map((c) => `
         <label class="candidate-vote-option">
-          <input type="checkbox" name="race-${ri}" value="${escapeHtml(c.name)}">
+          <input type="radio" name="race-${ri}" value="${escapeHtml(c.name)}">
           ${candidateProfileMarkup(c)}
         </label>`).join("")}
     </fieldset>`).join("");
@@ -429,7 +295,7 @@ async function renderVoteStep() {
   voteFullscreen.innerHTML = `
     <div class="ballot-inner">
       <div class="ballot-header">
-        <p class="eyebrow">Hi, ${firstName(currentStudent?.name || "")} &middot; official ballot</p>
+        <p class="eyebrow">Hi, ${escapeHtml(firstName(currentStudent?.name || ""))} &middot; official ballot</p>
         <h2>Cast your vote</h2>
       </div>
       ${ballot.length ? `<div class="ballot-grid">${racesHtml}</div>` : '<p class="error-text" style="color:var(--muted);">No candidates have been set up yet. Please check with the election officer.</p>'}
@@ -530,9 +396,8 @@ function resetToStart() {
   if (waitingPoll) { clearInterval(waitingPoll); waitingPoll = null; }
   clearStudentToken();
   currentStudent = null;
-  activeTab = "login"; // <-- Reset activeTab state explicitly
   voteFullscreen.classList.remove("show");
-  renderEntryStep("login");
+  renderEntryStep();
 }
 
 async function restoreSession() {
@@ -553,7 +418,7 @@ async function restoreSession() {
     }
   }
 
-  renderEntryStep("login");
+  renderEntryStep();
 }
 
 /* ---------------- Admin OTP verification ---------------- */
@@ -604,12 +469,10 @@ function openAdminDashboard(admin) {
   document.getElementById("adminWho").textContent = `${admin.name} \u00b7 ${admin.email}`;
   switchAdminTab("dashboard");
   refreshAll();
-  startPendingRegistrationsPolling();
 }
 function refreshAll() {
   renderStatRow();
   renderResultsPanel();
-  renderPendingRegistrations();
   renderBlockGrid();
   renderRosterTable();
   renderCandidateList();
@@ -617,7 +480,6 @@ function refreshAll() {
   renderAdminList();
 }
 document.getElementById("adminLogout").onclick = () => {
-  stopPendingRegistrationsPolling();
   adminSection.classList.add("hidden");
   publicPage.classList.remove("hidden");
   voterSection.classList.remove("hidden");
@@ -653,7 +515,6 @@ async function renderStatRow() {
       <div class="stat-num">${stats.total}</div>
     </div>
     <div class="metric-card-grid">
-      <div class="stat-card metric-stat-card"><div class="stat-numa">${stats.pending}</div><div class="stat-label">Pending approval</div></div>
       <div class="stat-card metric-stat-card"><div class="stat-nume">${stats.registeredNotVoted}</div><div class="stat-label">Credentials issued</div></div>
       <div class="stat-card metric-stat-card"><div class="stat-numi">${stats.voted}</div><div class="stat-label">Voted</div></div>
     </div>`;
@@ -665,14 +526,12 @@ async function renderStatRow() {
     </button>`;
 
   const chartTotal = Math.max(1, stats.total);
-  const pendingAngle = (stats.pending / chartTotal) * 360;
-  const credentialAngle = pendingAngle + (stats.registeredNotVoted / chartTotal) * 360;
+  const credentialAngle = (stats.registeredNotVoted / chartTotal) * 360;
   const votedAngle = credentialAngle + (stats.voted / chartTotal) * 360;
-  const notRegistered = Math.max(0, stats.total - stats.pending - stats.registeredNotVoted - stats.voted);
-  document.getElementById("participationChart").style.background = `conic-gradient(var(--red) 0deg ${pendingAngle}0deg, var(--blue-light) ${pendingAngle}deg ${credentialAngle}deg, var(--success) ${credentialAngle}deg ${votedAngle}deg, rgba(255,255,255,.16) ${votedAngle}deg 360deg)`;
+  const notRegistered = Math.max(0, stats.total - stats.registeredNotVoted - stats.voted);
+  document.getElementById("participationChart").style.background = `conic-gradient(var(--blue-light) 0deg ${credentialAngle}deg, var(--success) ${credentialAngle}deg ${votedAngle}deg, rgba(255,255,255,.16) ${votedAngle}deg 360deg)`;
   document.getElementById("participationChart").innerHTML = `<span class="participation-chart-center"><strong>${Math.round((stats.voted / chartTotal) * 100)}%</strong><small>voted</small></span>`;
   document.getElementById("participationLegend").innerHTML = [
-    ["Pending approval", stats.pending, "var(--red)"],
     ["Credentials issued", stats.registeredNotVoted, "var(--blue-light)"],
     ["Voted", stats.voted, "var(--success)"],
     ["Not registered", notRegistered, "rgba(255,255,255,.4)"],
@@ -706,7 +565,7 @@ async function renderResultsPanel() {
     const totalVotes = race.candidates.reduce((sum, candidate) => sum + candidate.votes, 0);
     return `
       <div class="results-row">
-        <h4 class="results-position">${race.position}</h4>
+        <h4 class="results-position">${escapeHtml(race.position)}</h4>
         ${race.candidates.map((candidate) => candidateProfileMarkup(candidate, {
           votes: candidate.votes,
           percent: totalVotes ? Math.round((candidate.votes / totalVotes) * 100) : 0,
@@ -718,8 +577,6 @@ async function renderResultsPanel() {
 /* ---- students: per-block summary cards + collapsible full roster ---- */
 let cachedRoster = [];
 let selectedRosterBlock = null;
-let pendingRegistrationsPoll = null;
-let pendingRegistrationsLoading = false;
 async function renderBlockGrid() {
   try {
     const data = await api("/admin/students", { token: adminToken });
@@ -746,7 +603,7 @@ async function renderBlockGrid() {
         const genPct = b.total ? Math.round((b.registered / b.total) * 100) : 0;
         return `
           <div class="block-card" data-roster-block="${escapeHtml(key)}" title="Show students in ${escapeHtml(key)}">
-            <h4>${key}</h4>
+            <h4>${escapeHtml(key)}</h4>
             <div class="block-metric">
               <div class="block-metric-label"><span>Voted</span><span>${votedPct}%</span></div>
               <div class="block-metric-track"><div class="block-metric-fill voted" style="width:${votedPct}%"></div></div>
@@ -810,95 +667,6 @@ async function renderRosterTable() {
       }
     };
   });
-}
-
-async function renderPendingRegistrations() {
-  const list = document.getElementById("pendingRegistrationsList");
-  if (!list || !adminToken || pendingRegistrationsLoading) return;
-  pendingRegistrationsLoading = true;
-  try {
-    const data = await api("/admin/students/pending", { token: adminToken });
-    const pending = data.students || [];
-    if (!pending.length) {
-      list.innerHTML = `<p class="panel-note">No registrations are waiting for review.</p>`;
-      return;
-    }
-    list.innerHTML = pending.map((student) => `
-      <article class="pending-registration">
-        <div class="pending-registration-photo">
-          ${student.id_photo ? `<img src="${student.id_photo}" alt="ID verification for ${escapeHtml(student.name)}">` : "<span>No photo</span>"}
-        </div>
-        <div class="pending-registration-details">
-          <h4>${escapeHtml(student.name)}</h4>
-          <p>${escapeHtml(student.id_no)} &middot; Block: ${escapeHtml(student.block || "No block")}</p>
-          <p>${escapeHtml(student.email || "No email")}</p>
-          <div class="pending-registration-actions">
-            <button class="btn-gradient btn-small" data-approve-registration="${encodeURIComponent(student.id_no)}">Approve</button>
-            <button class="btn-secondary btn-small" data-disapprove-registration="${encodeURIComponent(student.id_no)}">Disapprove</button>
-          </div>
-        </div>
-      </article>`).join("");
-
-    list.querySelectorAll("[data-approve-registration]").forEach((button) => {
-      button.onclick = async () => {
-        const card = button.closest(".pending-registration");
-        const actions = card.querySelector(".pending-registration-actions");
-        button.disabled = true;
-        actions.querySelectorAll("button").forEach((action) => { action.disabled = true; });
-        button.textContent = "Approving...";
-        card.classList.add("is-processing");
-        try {
-          card.remove();
-          if (!list.querySelector(".pending-registration")) {
-            list.innerHTML = `<p class="panel-note">Saving approval...</p>`;
-          }
-          const result = await api(`/admin/students/${button.dataset.approveRegistration}/approve`, { method: "POST", token: adminToken });
-          cachedRoster = [];
-          renderPendingRegistrations(); renderRosterTable(); renderBlockGrid(); renderStatRow();
-          if (!result.emailed) alert(result.message);
-        } catch (err) {
-          renderPendingRegistrations();
-          alert(err.error || "Couldn't approve that registration.");
-        }
-      };
-    });
-    list.querySelectorAll("[data-disapprove-registration]").forEach((button) => {
-      button.onclick = async () => {
-        const note = prompt("Reason for disapproval (optional):", "");
-        if (note === null) return;
-        button.disabled = true;
-        try {
-          await api(`/admin/students/${button.dataset.disapproveRegistration}/disapprove`, { method: "POST", token: adminToken, body: { note } });
-          renderPendingRegistrations();
-        } catch (err) {
-          button.disabled = false;
-          alert(err.error || "Couldn't disapprove that registration.");
-        }
-      };
-    });
-  } catch (_err) {
-    list.innerHTML = `<p class="error-text">Couldn't load pending registrations.</p>`;
-  } finally {
-    pendingRegistrationsLoading = false;
-  }
-}
-
-function startPendingRegistrationsPolling() {
-  if (pendingRegistrationsPoll) return;
-  renderPendingRegistrations();
-  pendingRegistrationsPoll = setInterval(() => {
-    if (!adminToken || adminSection.classList.contains("hidden")) {
-      stopPendingRegistrationsPolling();
-      return;
-    }
-    renderPendingRegistrations();
-  }, 3000);
-}
-
-function stopPendingRegistrationsPolling() {
-  if (!pendingRegistrationsPoll) return;
-  clearInterval(pendingRegistrationsPoll);
-  pendingRegistrationsPoll = null;
 }
 
 /* Add Student modal (manual add + CSV import) */
@@ -992,7 +760,7 @@ async function renderCandidateList() {
   });
   candidates = candidates.map((candidate) => ({
     ...candidate,
-    result: resultsByCandidate.get(`${candidate.position}::${candidate.name}`) || { votes: 0, percent: 0 },
+    result: resultsByCandidate.get(`${candidate.race_position || candidate.position}::${candidate.name}`) || { votes: 0, percent: 0 },
   }));
   if (!candidates.length) {
     el.innerHTML = `<p class="panel-note">No candidates yet. Use "Add Candidates" to get started.</p>`;
@@ -1000,12 +768,13 @@ async function renderCandidateList() {
   }
   const byPosition = {};
   candidates.forEach((c) => {
-    if (!byPosition[c.position]) byPosition[c.position] = [];
-    byPosition[c.position].push(c);
+    const position = c.race_position || c.position;
+    if (!byPosition[position]) byPosition[position] = [];
+    byPosition[position].push(c);
   });
   el.innerHTML = `${resultsUnavailable ? `<p class="panel-note">Candidate profiles are available, but vote totals couldn't be loaded.</p>` : ""}` + Object.entries(byPosition).map(([position, list]) => `
     <div class="candidate-position-group">
-      <p class="candidate-position-title">${position}</p>
+      <p class="candidate-position-title">${escapeHtml(position)}</p>
       ${list.map((c) => `
         <div class="candidate-list-row">
           ${candidateProfileMarkup(c, c.result)}
@@ -1014,28 +783,54 @@ async function renderCandidateList() {
 }
 
 const addCandidateOverlay = document.getElementById("addCandidateOverlay");
-document.getElementById("openAddCandidateModal").onclick = () => addCandidateOverlay.classList.add("show");
+document.getElementById("openAddCandidateModal").onclick = async () => {
+  const errorEl = document.getElementById("candidateRosterError");
+  const select = document.getElementById("candStudent");
+  errorEl.textContent = "";
+  select.disabled = true;
+  select.innerHTML = `<option value="">Loading student roster...</option>`;
+  addCandidateOverlay.classList.add("show");
+  try {
+    const data = await api("/admin/students", { token: adminToken });
+    cachedRoster = data.students || [];
+    select.innerHTML = `<option value="">Select a student</option>` + cachedRoster.map((student) =>
+      `<option value="${escapeHtml(student.id_no)}">${escapeHtml(student.name)} | ${escapeHtml(student.id_no)}${student.block ? ` | ${escapeHtml(student.block)}` : ""}</option>`
+    ).join("");
+    select.disabled = cachedRoster.length === 0;
+    if (!cachedRoster.length) errorEl.textContent = "Add students to the roster before adding candidates.";
+  } catch (err) {
+    select.innerHTML = `<option value="">Roster unavailable</option>`;
+    errorEl.textContent = err.error || "Couldn't load the student roster.";
+  }
+};
 document.getElementById("closeAddCandidateModal").onclick = () => addCandidateOverlay.classList.remove("show");
 document.getElementById("addCandidateBtn").onclick = async () => {
   const position = document.getElementById("candPosition").value.trim();
-  const name = document.getElementById("candName").value.trim();
-  const id_no = document.getElementById("candIdNo").value.trim();
-  const block = document.getElementById("candBlock").value.trim();
+  const id_no = document.getElementById("candStudent").value;
   const party = document.getElementById("candParty").value.trim();
   const photoFile = document.getElementById("candPhoto").files[0];
-  if (!position || !name) return;
+  const errorEl = document.getElementById("candidateRosterError");
+  errorEl.textContent = "";
+  if (!position || !id_no) {
+    errorEl.textContent = "Enter a position and select a student.";
+    return;
+  }
+  const button = document.getElementById("addCandidateBtn");
+  button.disabled = true;
   try {
     const photo = photoFile ? await fileAsDataUrl(photoFile) : "";
-    await api("/admin/candidates", { method: "POST", token: adminToken, body: { position, name, id_no, block, party, photo } });
+    await api("/admin/candidates", { method: "POST", token: adminToken, body: { position, id_no, party, photo } });
     document.getElementById("candPosition").value = "";
-    document.getElementById("candName").value = "";
-    document.getElementById("candIdNo").value = "";
-    document.getElementById("candBlock").value = "";
+    document.getElementById("candStudent").value = "";
     document.getElementById("candParty").value = "";
     document.getElementById("candPhoto").value = "";
     renderCandidateList(); renderResultsPanel();
     addCandidateOverlay.classList.remove("show");
-  } catch (err) { alert(err.error || "Couldn't add that candidate."); }
+  } catch (err) {
+    errorEl.textContent = err.error || "Couldn't add that candidate.";
+  } finally {
+    button.disabled = false;
+  }
 };
 
 /* ---- site QR code (leads back to this site, not a per-student code) ---- */
@@ -1111,16 +906,5 @@ document.getElementById("addAdminBtn").onclick = async () => {
   }
 };
 
-document.addEventListener("DOMContentLoaded", () => {
-  const isAdminLoggedIn = localStorage.getItem("isAdminLoggedIn") === "true";
-
-  if (isAdminLoggedIn) {
-    // Skip login forms and immediately show the admin view
-    renderAdminDashboard();
-  } else {
-    // Show default voter login / entry step
-    renderEntryStep();
-  }
-});
 /* ---------------- Boot ---------------- */
 restoreSession();

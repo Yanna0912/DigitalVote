@@ -4,8 +4,9 @@ const Papa = require("papaparse");
 const bcrypt = require("bcryptjs");
 const { supabase } = require("../db");
 const { requireAdmin } = require("../auth");
-const { genUsername, studentDisplayName, studentNameParts, genPassword, isGmail, asyncHandler } = require("../utils");
+const { studentDisplayName, studentNameParts, genPassword, isGmail, asyncHandler } = require("../utils");
 const { sendMail, studentCredentialsEmail } = require("../mailer");
+const { candidateRacePosition } = require("../election");
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } });
@@ -28,12 +29,10 @@ router.get("/stats", asyncHandler(async (_req, res) => {
   const { count: registeredNotVoted } = await supabase
     .from("students").select("*", { count: "exact", head: true }).eq("registered", true).eq("voted", false);
   const { count: voted } = await supabase.from("students").select("*", { count: "exact", head: true }).eq("voted", true);
-  const { count: pending } = await supabase.from("students").select("*", { count: "exact", head: true }).eq("approval_status", "pending");
   const { data: setting } = await supabase.from("settings").select("value").eq("key", "voting_open").maybeSingle();
 
   res.json({
     total: total || 0,
-    pending: pending || 0,
     registeredNotVoted: registeredNotVoted || 0,
     voted: voted || 0,
     votingOpen: setting?.value === "true",
@@ -52,66 +51,17 @@ router.post("/settings/voting-open", asyncHandler(async (req, res) => {
 router.get("/students", asyncHandler(async (_req, res) => {
   const { data, error } = await supabase
     .from("students")
-    .select("id_no, first_name, last_name, suffix, block, email, id_photo, approval_status, approval_note, registered, registered_at, voted, voted_at, created_at")
+    .select("id_no, first_name, last_name, suffix, block, email, registered, registered_at, voted, voted_at, created_at")
     .order("created_at", { ascending: true });
   if (error) return res.status(500).json({ error: "Couldn't load the roster." });
   res.json({ students: data.map((student) => ({ ...student, name: studentDisplayName(student) })) });
 }));
 
-router.get("/students/pending", asyncHandler(async (_req, res) => {
-  const { data, error } = await supabase.from("students")
-    .select("id_no, first_name, last_name, suffix, block, email, id_photo, approval_status, created_at")
-    .eq("approval_status", "pending")
-    .order("created_at", { ascending: true });
-  if (error) return res.status(500).json({ error: "Couldn't load pending registrations." });
-  res.json({ students: data.map((student) => ({ ...student, name: studentDisplayName(student) })) });
-}));
-
-router.post("/students/:id_no/approve", asyncHandler(async (req, res) => {
-  const { data: student, error: lookupError } = await supabase.from("students").select("*").eq("id_no", req.params.id_no).maybeSingle();
-  if (lookupError) return res.status(500).json({ error: "Couldn't load that registration." });
-  if (!student) return res.status(404).json({ error: "Student registration not found." });
-  if (student.registered || student.approval_status !== "pending") return res.status(409).json({ error: "That registration is not waiting for approval." });
-  if (!student.email) return res.status(400).json({ error: "The registration has no email address." });
-
-  const displayName = studentDisplayName(student);
-  const username = genUsername(displayName, student.id_no);
-  const plainPassword = genPassword();
-  const password_hash = await bcrypt.hash(plainPassword, 10);
-  const { data: approvedStudent, error: updateError } = await supabase.from("students").update({
-    username, password_hash, registered: true, registered_at: new Date().toISOString(),
-    approval_status: "approved", approval_note: null,
-  }).eq("id_no", req.params.id_no).eq("approval_status", "pending").eq("registered", false).select("id_no").maybeSingle();
-  if (updateError) return res.status(500).json({ error: "Couldn't approve that registration." });
-  if (!approvedStudent) return res.status(409).json({ error: "That registration has already been processed." });
-
-  const credentialMail = studentCredentialsEmail({ name: displayName, username, password: plainPassword });
-  const mailResult = await sendMail({ to: student.email, ...credentialMail });
-  if (!mailResult.delivered) {
-    const { error: rollbackError } = await supabase.from("students").update({
-      username: null,
-      password_hash: null,
-      registered: false,
-      registered_at: null,
-      approval_status: "pending",
-    }).eq("id_no", student.id_no).eq("approval_status", "approved");
-    if (rollbackError) console.error(`[approval] Failed to return ${student.id_no} to pending after email failure:`, rollbackError.message);
-    return res.status(502).json({
-      error: `Credentials could not be emailed to ${student.email}. ${mailResult.error || "Check the Resend sender/domain configuration."}`,
-    });
-  }
-  res.json({
-    status: "approved",
-    emailed: true,
-    message: `Approved. Credentials were sent to ${student.email}.`,
-  });
-}));
-
 router.post("/students/:id_no/resend-credentials", asyncHandler(async (req, res) => {
   const { data: student, error: lookupError } = await supabase.from("students").select("*").eq("id_no", req.params.id_no).maybeSingle();
   if (lookupError) return res.status(500).json({ error: "Couldn't load that student." });
-  if (!student || !student.registered || student.approval_status !== "approved") {
-    return res.status(409).json({ error: "Credentials can only be resent for an approved student." });
+  if (!student || !student.registered) {
+    return res.status(409).json({ error: "Credentials can only be resent for a registered student." });
   }
   if (!student.email) return res.status(400).json({ error: "The student has no saved email address." });
 
@@ -129,21 +79,13 @@ router.post("/students/:id_no/resend-credentials", asyncHandler(async (req, res)
   if (!mailResult.delivered) {
     const { error: rollbackError } = await supabase.from("students").update({ password_hash: previousPasswordHash }).eq("id_no", student.id_no);
     if (rollbackError) console.error(`[credentials] Failed to restore password hash for ${student.id_no}:`, rollbackError.message);
+    return res.status(502).json({ error: "Credentials could not be emailed. The existing password was kept unchanged." });
   }
   res.json({
-    status: mailResult.delivered ? "sent" : "failed",
-    emailed: mailResult.delivered,
-    message: mailResult.delivered
-      ? `New credentials were sent to ${student.email}.`
-      : `Email delivery failed for ${student.email}. ${mailResult.error || "Check the Resend sender/domain and SMTP configuration."} The existing password was kept unchanged.`,
+    status: "sent",
+    emailed: true,
+    message: `New credentials were sent to ${student.email}.`,
   });
-}));
-
-router.post("/students/:id_no/disapprove", asyncHandler(async (req, res) => {
-  const note = String(req.body.note || "").trim();
-  const { error } = await supabase.from("students").update({ approval_status: "disapproved", approval_note: note || "Please contact the election officer for details.", id_photo: null }).eq("id_no", req.params.id_no);
-  if (error) return res.status(500).json({ error: "Couldn't disapprove that registration." });
-  res.json({ status: "disapproved" });
 }));
 
 router.post("/students", asyncHandler(async (req, res) => {
@@ -206,6 +148,7 @@ router.get("/candidates", asyncHandler(async (_req, res) => {
   if (error) return res.status(500).json({ error: "Couldn't load candidates." });
   res.json({ candidates: data.map((candidate) => ({
     ...candidate,
+    race_position: candidateRacePosition(candidate),
     party: candidate.party || candidate.slogan || null,
     id_no: candidate.id_no || null,
     block: candidate.block || null,
@@ -215,17 +158,29 @@ router.get("/candidates", asyncHandler(async (_req, res) => {
 
 router.post("/candidates", asyncHandler(async (req, res) => {
   const position = String(req.body.position || "").trim();
-  const name = String(req.body.name || "").trim();
   const id_no = String(req.body.id_no || "").trim();
-  const block = String(req.body.block || "").trim();
   const party = String(req.body.party || "").trim();
   const photo = String(req.body.photo || "").trim();
-  if (!position || !name) return res.status(400).json({ error: "Position and candidate name are required." });
+  if (!position || !id_no) return res.status(400).json({ error: "Position and a roster student are required." });
   if (photo && (!/^data:image\/(jpeg|png|webp);base64,/.test(photo) || photo.length > 5_500_000)) {
     return res.status(400).json({ error: "Candidate photo must be a JPG, PNG, or WebP image smaller than 4 MB." });
   }
 
-  const { error } = await supabase.from("candidates").insert({ position, name, id_no: id_no || null, block: block || null, party: party || null, photo: photo || null });
+  const { data: student, error: studentError } = await supabase
+    .from("students")
+    .select("id_no, first_name, last_name, suffix, block")
+    .eq("id_no", id_no)
+    .maybeSingle();
+  if (studentError) return res.status(500).json({ error: "Couldn't look up the candidate in the roster." });
+  if (!student) return res.status(404).json({ error: "Select a candidate from the student roster." });
+  const name = studentDisplayName(student);
+  if (position.toLowerCase() === "representative" && !student.block) {
+    return res.status(400).json({ error: "A representative candidate must have a block in the roster." });
+  }
+
+  const { error } = await supabase.from("candidates").insert({
+    position, name, id_no: student.id_no, block: student.block || null, party: party || null, photo: photo || null,
+  });
   if (error) return res.status(500).json({ error: "Couldn't add that candidate." });
   res.json({ status: "added" });
 }));
@@ -250,14 +205,17 @@ router.get("/results", asyncHandler(async (_req, res) => {
 
   const byPosition = {};
   for (const c of candidates) {
-    if (!byPosition[c.position]) byPosition[c.position] = [];
-    byPosition[c.position].push({
+    const position = candidateRacePosition(c);
+    if (!position) continue;
+    if (!byPosition[position]) byPosition[position] = [];
+    byPosition[position].push({
       ...c,
+      race_position: position,
       party: c.party || c.slogan || null,
       id_no: c.id_no || null,
       block: c.block || null,
       photo: c.photo || null,
-      votes: tally[`${c.position}::${c.name}`] || 0,
+      votes: tally[`${position}::${c.name}`] || 0,
     });
   }
   const results = Object.entries(byPosition).map(([position, list]) => ({ position, candidates: list }));

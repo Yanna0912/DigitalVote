@@ -1,8 +1,9 @@
 # CCDI Election Backend
 
 Express API backed by Supabase (Postgres) for the CCDI Supreme Student
-Government Election. Handles student registration (ID + email →
-generated login, emailed), unified login with role-based redirect, admin
+Government Election. Handles roster-matched student registration (ID,
+name, and email → generated login, emailed), unified login with
+role-based redirect, admin
 OTP verification by email, voting (gated on an admin-controlled
 open/closed switch), and CSV roster import.
 
@@ -30,8 +31,8 @@ RESEND_FROM=CCDI Election Portal <no-reply@your-verified-domain.com>
 
 Verify the sender domain in Resend. For a temporary test, you can use
 `onboarding@resend.dev`, but Resend may restrict that sender to the email
-address associated with your Resend account. OTP and approval emails are
-triggered by the existing login and admin-approval actions.
+address associated with your Resend account. Student credentials are sent after the submitted identity matches the
+roster, and admin OTP codes are sent during admin login.
 
 Mailjet SMTP is also available as an optional provider. Select it explicitly
 with `EMAIL_PROVIDER=mailjet` and configure:
@@ -62,10 +63,8 @@ project is Gmail with an **App Password**:
    SMTP_PASS=the-16-character-app-password
    ```
 
-If you skip this step, the server still runs — registration and admin
-OTP emails just aren't actually delivered. The API responds with the
-generated credentials/code directly instead (clearly labeled "dev
-preview") so you can still test the whole flow before email is wired up.
+If email delivery is not configured, registration and admin login return
+an error instead of exposing credentials or verification codes in the API.
 
 ## 3. Configure environment variables
 
@@ -73,7 +72,7 @@ preview") so you can still test the whole flow before email is wired up.
 cp .env.example .env
 ```
 Fill in `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET` (any
-long random string), the SMTP block above, and `FRONTEND_ORIGIN` (the
+long random string), the email-provider variables from section 2, and `FRONTEND_ORIGIN` (the
 deployed frontend URL, no trailing slash — use `*` while testing locally).
 
 ## 4. Run locally
@@ -136,14 +135,14 @@ Blueprints (New → Blueprint → point at this repo).
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/api/auth/student/lookup` | — | Register/verify by ID + email, emails credentials |
+| POST | `/api/auth/student/register` | — | Verify ID and name against the roster; email credentials |
 | POST | `/api/auth/student/resend` | — | Re-send a fresh password to a matching ID + email |
 | POST | `/api/auth/login` | — | Unified login; admins get an OTP step, students get a session |
 | POST | `/api/auth/admin/signup` | — | Create a new admin account |
 | POST | `/api/auth/admin/verify-otp` | — | Finish admin login with the emailed code |
 | GET | `/api/me` | student | Current student status + whether voting is open |
-| GET | `/api/ballot` | student | Candidates grouped by position (only while voting is open) |
-| POST | `/api/vote` | student | Cast a vote (one row per position, server-enforced) |
+| GET | `/api/ballot` | student | Candidates grouped by position; representative candidates are limited to the student's course |
+| POST | `/api/vote` | student | Cast a vote; candidate eligibility is validated against the student's block |
 | GET/POST/DELETE | `/api/admin/students` | admin | Roster CRUD |
 | POST | `/api/admin/students/import` | admin | CSV bulk import |
 | GET/POST/DELETE | `/api/admin/candidates` | admin | Candidate CRUD |
@@ -157,9 +156,7 @@ with the JWT returned at login.
 
 ## Security notes for going further
 
-- Passwords are hashed with bcrypt — never stored or logged in plain text
-  (except the one-time "dev preview" shown only when SMTP isn't
-  configured, meant for local testing).
+- Passwords are hashed with bcrypt and are never returned by the API.
 - RLS is enabled with **no** public policies, so leaking the anon key
   can't expose data — only the service role key (server-side only) can
   read/write.
