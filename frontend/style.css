@@ -523,7 +523,10 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .vote-fullscreen.confirm{background:linear-gradient(160deg, #1B8F63, var(--success) 60%, #0D5C3E);}
 .vote-fullscreen.blocked{background:linear-gradient(160deg, #C23A50, var(--red) 60%, #7C1A2A);}
 .vote-fullscreen.waiting{background:linear-gradient(160deg, #1E2A55, var(--indigo) 60%, #131A3A);}
-.vote-fullscreen.ballot{background:#fff; align-items:flex-start;}
+.vote-fullscreen.ballot{
+  background:linear-gradient(180deg,#E8EEFA 0%,#F6F8FD 100%);
+  align-items:flex-start;
+}
 
 /* Every other vote-fullscreen state (confirm/blocked/waiting) sits on a dark
    gradient, so .vote-fullscreen's own color:#fff and --ink (#EAEEFB, nearly
@@ -535,12 +538,13 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .vote-fullscreen.ballot p{color:#5B6472;}
 .vote-fullscreen.ballot .error-text{color:var(--red);}
 .vote-fullscreen.ballot .ballot-header h2{color:#10131A;}
-.vote-fullscreen.ballot .race > legend.eyebrow{color:var(--blue);}
+.vote-fullscreen.ballot .race > legend.eyebrow{color:#9A6700;}
 .vote-fullscreen.ballot .candidate-vote-option .candidate-profile-card{
-  border-color:#E3E7EE; background:#F6F8FA;
+  background:#ffffff; border-color:#D3DCEF;
+  box-shadow:0 2px 10px rgba(14,27,61,.07);
 }
 .vote-fullscreen.ballot .candidate-vote-option:has(input:checked) .candidate-profile-card{
-  border-color:var(--blue); background:rgba(13,68,233,.08);
+  background:#FFF8E1; border-color:#F5B301;
 }
 .vote-fullscreen.ballot .candidate-profile-info strong{color:#10131A;}
 .vote-fullscreen.ballot .candidate-profile-info span{color:#5B6472;}

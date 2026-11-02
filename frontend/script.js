@@ -83,6 +83,26 @@ function isInvalidSession(error) {
 }
 
 /* ---------------- helpers ---------------- */
+const candidatePositionOrder = [
+  "president",
+  "vice president",
+  "secretary",
+  "treasurer",
+  "auditor",
+  "public information officer",
+  "peace officer",
+  "representative",
+];
+
+function candidatePositionRank(position) {
+  const normalized = String(position || "").trim().toLocaleLowerCase();
+  const basePosition = normalized.startsWith("representative - ")
+    ? "representative"
+    : normalized;
+  const rank = candidatePositionOrder.indexOf(basePosition);
+  return rank === -1 ? candidatePositionOrder.length : rank;
+}
+
 function firstName(name) { return (name || "").split(",")[1]?.trim().split(" ")[0] || name; }
 function timeStamp(d) {
   if (!d) return "&mdash;";
@@ -392,6 +412,10 @@ async function renderVoteStep() {
     return;
   }
 
+  ballot = [...ballot].sort((a, b) =>
+    candidatePositionRank(a.position) - candidatePositionRank(b.position) ||
+    String(a.position).localeCompare(String(b.position))
+  );
   const racesHtml = ballot.map((race, ri) => `
     <fieldset class="race">
       <legend class="eyebrow" style="margin-bottom:8px;">${escapeHtml(race.position)}</legend>
@@ -914,26 +938,6 @@ document.getElementById("importCsvBtn").onclick = async () => {
 };
 
 /* ---- candidates: grouped list + Add Candidate modal ---- */
-const candidatePositionOrder = [
-  "president",
-  "vice president",
-  "secretary",
-  "treasurer",
-  "auditor",
-  "public information officer",
-  "peace officer",
-  "representative",
-];
-
-function candidatePositionRank(position) {
-  const normalized = String(position || "").trim().toLocaleLowerCase();
-  const basePosition = normalized.startsWith("representative - ")
-    ? "representative"
-    : normalized;
-  const rank = candidatePositionOrder.indexOf(basePosition);
-  return rank === -1 ? candidatePositionOrder.length : rank;
-}
-
 async function renderCandidateList() {
   const el = document.getElementById("candidateList");
   let candidates;
