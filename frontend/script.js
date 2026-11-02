@@ -914,6 +914,26 @@ document.getElementById("importCsvBtn").onclick = async () => {
 };
 
 /* ---- candidates: grouped list + Add Candidate modal ---- */
+const candidatePositionOrder = [
+  "president",
+  "vice president",
+  "secretary",
+  "treasurer",
+  "auditor",
+  "public information officer",
+  "peace officer",
+  "representative",
+];
+
+function candidatePositionRank(position) {
+  const normalized = String(position || "").trim().toLocaleLowerCase();
+  const basePosition = normalized.startsWith("representative - ")
+    ? "representative"
+    : normalized;
+  const rank = candidatePositionOrder.indexOf(basePosition);
+  return rank === -1 ? candidatePositionOrder.length : rank;
+}
+
 async function renderCandidateList() {
   const el = document.getElementById("candidateList");
   let candidates;
@@ -954,7 +974,10 @@ async function renderCandidateList() {
     if (!byPosition[position]) byPosition[position] = [];
     byPosition[position].push(c);
   });
-  el.innerHTML = `${resultsUnavailable ? `<p class="panel-note">Candidate profiles are available, but vote totals couldn't be loaded.</p>` : ""}` + Object.entries(byPosition).map(([position, list]) => `
+  const sortedPositions = Object.entries(byPosition).sort(([a], [b]) =>
+    candidatePositionRank(a) - candidatePositionRank(b) || a.localeCompare(b)
+  );
+  el.innerHTML = `${resultsUnavailable ? `<p class="panel-note">Candidate profiles are available, but vote totals couldn't be loaded.</p>` : ""}` + sortedPositions.map(([position, list]) => `
     <div class="candidate-position-group">
       <p class="candidate-position-title">${escapeHtml(position)}</p>
       ${list.map((c) => `
