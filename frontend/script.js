@@ -997,11 +997,11 @@ function renderCandidateStudentSearch() {
   candidateStudentSelect.disabled = visibleMatches.length === 0;
 
   if (!matches.length) {
-    candidateSearchStatus.textContent = "No students match. Try a different name, ID, or block.";
+    candidateSearchStatus.textContent = "No candidates match. Try a different name, ID, or block.";
   } else if (matches.length > MAX_CANDIDATE_SEARCH_RESULTS) {
-    candidateSearchStatus.textContent = `Showing the first ${MAX_CANDIDATE_SEARCH_RESULTS} of ${matches.length} matches. Add more search terms to narrow the results.`;
+    candidateSearchStatus.textContent = `Showing the first ${MAX_CANDIDATE_SEARCH_RESULTS} of ${matches.length} candidates. Add more search terms to narrow the results.`;
   } else {
-    candidateSearchStatus.textContent = `${matches.length} student${matches.length === 1 ? "" : "s"} found.`;
+    candidateSearchStatus.textContent = `${matches.length} candidate${matches.length === 1 ? "" : "s"} found.`;
   }
 }
 
