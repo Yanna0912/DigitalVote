@@ -277,8 +277,18 @@
     <h3 class="cred-name">Add a candidate</h3>
     <p class="panel-note">Select the student from the roster so their block is assigned automatically. Representative races are shown only to students in the same course.</p>
     <div class="field-dark">
-      <label>Position</label>
-      <input type="text" id="candPosition" placeholder="e.g. President or Representative">
+      <label for="candPosition">Position</label>
+      <select id="candPosition">
+        <option value="">Select a position</option>
+        <option value="President">President</option>
+        <option value="Vice President">Vice President</option>
+        <option value="Secretary">Secretary</option>
+        <option value="Treasurer">Treasurer</option>
+        <option value="Auditor">Auditor</option>
+        <option value="Public Information Officer">Public Information Officer</option>
+        <option value="Peace Officer">Peace Officer</option>
+        <option value="Representative">Representative</option>
+      </select>
     </div>
     <div class="field-dark">
       <label class="candidate-student-label" for="candStudentSearch">Candidate student <span id="candidateSearchStatus" aria-live="polite">Load the roster to search for a student.</span></label>

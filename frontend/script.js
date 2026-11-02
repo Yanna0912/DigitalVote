@@ -1006,6 +1006,10 @@ function renderCandidateStudentSearch() {
 }
 
 candidateSearch.addEventListener("input", renderCandidateStudentSearch);
+candidateStudentSelect.addEventListener("change", () => {
+  const selectedStudent = cachedRoster.find((student) => student.id_no === candidateStudentSelect.value);
+  if (selectedStudent) candidateSearch.value = selectedStudent.name;
+});
 
 document.getElementById("openAddCandidateModal").onclick = async () => {
   const errorEl = document.getElementById("candidateRosterError");
