@@ -9,7 +9,8 @@ function escapeHtml(value) {
 
 async function sendMail({ to, subject, html, text }) {
   try {
-    const defaultProvider = process.env.RESEND_API_KEY ? "resend" : "smtp";
+    const smtpConfigured = process.env.SMTP_USER && process.env.SMTP_PASS;
+    const defaultProvider = smtpConfigured ? "smtp" : process.env.RESEND_API_KEY ? "resend" : "smtp";
     const provider = String(process.env.EMAIL_PROVIDER || defaultProvider).toLowerCase();
     if (provider === "resend") {
       if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM) {

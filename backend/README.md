@@ -20,7 +20,8 @@ open/closed switch), and CSV roster import.
 
 ## 2. Set up outgoing email
 
-Resend is the default email provider. Add these variables to Render (and
+Resend is used when `EMAIL_PROVIDER=resend` or when no SMTP credentials are
+configured and `RESEND_API_KEY` is present. Add these variables to Render (and
 local `.env` when testing locally):
 
 ```
@@ -62,6 +63,9 @@ project is Gmail with an **App Password**:
    SMTP_USER=your-address@gmail.com
    SMTP_PASS=the-16-character-app-password
    ```
+
+When both SMTP credentials and a Resend API key are configured, SMTP is used
+unless `EMAIL_PROVIDER` explicitly selects another provider.
 
 If email delivery is not configured, registration and admin login return
 an error instead of exposing credentials or verification codes in the API.
