@@ -27,7 +27,13 @@ async function api(path, { method = "GET", body, token } = {}) {
   let data = {};
   try { data = await res.json(); } catch (_parseErr) { /* empty body is fine */ }
 
-  if (!res.ok) throw data && data.error ? data : { error: "Something went wrong. Please try again." };
+  if (!res.ok) {
+    throw {
+      ...(data && typeof data === "object" ? data : {}),
+      error: data && data.error ? data.error : "Something went wrong. Please try again.",
+      status: res.status,
+    };
+  }
   return data;
 }
 
@@ -61,6 +67,20 @@ function setStudentToken(t) { studentToken = t; sessionStorage.setItem("ccdi_stu
 function clearStudentToken() { studentToken = null; sessionStorage.removeItem("ccdi_student_token"); }
 function setAdminToken(t) { adminToken = t; sessionStorage.setItem("ccdi_admin_token", t); }
 function clearAdminToken() { adminToken = null; sessionStorage.removeItem("ccdi_admin_token"); }
+const ADMIN_TAB_KEY = "ccdi_admin_tab";
+const BALLOT_SELECTIONS_KEY = "ccdi_ballot_selections";
+const STUDENT_SESSION_KEY = "ccdi_student_session";
+const ADMIN_SESSION_KEY = "ccdi_admin_session";
+
+function cacheStudentSession(student, votingOpen) {
+  sessionStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify({ student, votingOpen }));
+}
+function cacheAdminSession(admin) {
+  sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(admin));
+}
+function isInvalidSession(error) {
+  return error?.status === 401 || error?.status === 403 || error?.status === 404;
+}
 
 /* ---------------- helpers ---------------- */
 function firstName(name) { return (name || "").split(",")[1]?.trim().split(" ")[0] || name; }
@@ -231,6 +251,7 @@ async function handleLogin(username, password) {
     } else {
       setStudentToken(data.token);
       currentStudent = data.student;
+      cacheStudentSession(data.student, data.votingOpen);
       proceedAfterAuth(data.student, data.votingOpen);
     }
   } catch (err) {
@@ -305,6 +326,29 @@ async function renderVoteStep() {
       </div>
     </div>`;
 
+  let savedSelections = {};
+  try {
+    savedSelections = JSON.parse(sessionStorage.getItem(BALLOT_SELECTIONS_KEY) || "{}");
+  } catch (_error) {
+    sessionStorage.removeItem(BALLOT_SELECTIONS_KEY);
+  }
+  ballot.forEach((race, ri) => {
+    const savedName = savedSelections[race.position];
+    if (!savedName) return;
+    const option = Array.from(document.querySelectorAll(`input[name="race-${ri}"]`))
+      .find((input) => input.value === savedName);
+    if (option) option.checked = true;
+  });
+  voteFullscreen.querySelectorAll(".candidate-vote-option input").forEach((input) => {
+    input.addEventListener("change", () => {
+      const selections = {};
+      ballot.forEach((race, ri) => {
+        const selected = document.querySelector(`input[name="race-${ri}"]:checked`);
+        if (selected) selections[race.position] = selected.value;
+      });
+      sessionStorage.setItem(BALLOT_SELECTIONS_KEY, JSON.stringify(selections));
+    });
+  });
   document.getElementById("btnSubmitVote").onclick = () => submitVote(ballot);
 }
 
@@ -324,6 +368,7 @@ async function submitVote(ballot) {
   btn.disabled = true;
   try {
     const res = await api("/vote", { method: "POST", token: studentToken, body: { votes } });
+    sessionStorage.removeItem(BALLOT_SELECTIONS_KEY);
     showConfirmation({ name: currentStudent?.name || "", votedAt: res.votedAt });
   } catch (err) {
     errorEl.textContent = err.error || "Couldn't submit your vote. Please try again.";
@@ -378,6 +423,7 @@ async function checkWaiting(_silent) {
   try {
     const data = await api("/me", { token: studentToken });
     currentStudent = data.student;
+    cacheStudentSession(data.student, data.votingOpen);
     if (data.student.voted) {
       clearInterval(waitingPoll); waitingPoll = null;
       showAlreadyVoted(data.student);
@@ -395,6 +441,8 @@ async function checkWaiting(_silent) {
 function resetToStart() {
   if (waitingPoll) { clearInterval(waitingPoll); waitingPoll = null; }
   clearStudentToken();
+  sessionStorage.removeItem(STUDENT_SESSION_KEY);
+  sessionStorage.removeItem(BALLOT_SELECTIONS_KEY);
   currentStudent = null;
   voteFullscreen.classList.remove("show");
   renderEntryStep();
@@ -402,22 +450,61 @@ function resetToStart() {
 
 async function restoreSession() {
   if (adminToken) {
-    clearAdminToken();
-    currentAdmin = null;
+    try {
+      const data = await api("/admin/me", { token: adminToken });
+      currentAdmin = data.admin;
+      cacheAdminSession(data.admin);
+      openAdminDashboard(data.admin, sessionStorage.getItem(ADMIN_TAB_KEY));
+      return;
+    } catch (error) {
+      if (isInvalidSession(error)) {
+        clearAdminToken();
+        sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        sessionStorage.removeItem(ADMIN_TAB_KEY);
+      } else {
+        try {
+          currentAdmin = JSON.parse(sessionStorage.getItem(ADMIN_SESSION_KEY) || "null");
+        } catch (_parseError) {
+          sessionStorage.removeItem(ADMIN_SESSION_KEY);
+        }
+        if (currentAdmin) {
+          openAdminDashboard(currentAdmin, sessionStorage.getItem(ADMIN_TAB_KEY));
+          return;
+        }
+      }
+    }
   }
 
   if (studentToken) {
     try {
       const data = await api("/me", { token: studentToken });
       currentStudent = data.student;
+      cacheStudentSession(data.student, data.votingOpen);
       proceedAfterAuth(data.student, data.votingOpen);
       return;
-    } catch (_err) {
-      clearStudentToken();
-      currentStudent = null;
+    } catch (error) {
+      if (isInvalidSession(error)) {
+        clearStudentToken();
+        sessionStorage.removeItem(STUDENT_SESSION_KEY);
+        sessionStorage.removeItem(BALLOT_SELECTIONS_KEY);
+      } else {
+        let cachedSession;
+        try {
+          cachedSession = JSON.parse(sessionStorage.getItem(STUDENT_SESSION_KEY) || "null");
+        } catch (_parseError) {
+          sessionStorage.removeItem(STUDENT_SESSION_KEY);
+        }
+        if (cachedSession?.student) {
+          currentStudent = cachedSession.student;
+          proceedAfterAuth(cachedSession.student, cachedSession.votingOpen);
+          return;
+        }
+      }
     }
   }
 
+  currentAdmin = null;
+  currentStudent = null;
   renderEntryStep();
 }
 
@@ -440,6 +527,7 @@ document.getElementById("otpSubmit").onclick = async () => {
     otpOverlay.classList.remove("show");
     setAdminToken(data.token);
     currentAdmin = data.admin;
+    cacheAdminSession(data.admin);
     pendingAdminCreds = null;
     openAdminDashboard(data.admin);
   } catch (err) {
@@ -461,13 +549,13 @@ document.getElementById("otpResendLink").onclick = async (e) => {
 };
 
 /* ---------------- Admin dashboard ---------------- */
-function openAdminDashboard(admin) {
+function openAdminDashboard(admin, initialTab = "dashboard") {
   voterSection.classList.add("hidden");
   publicPage.classList.add("hidden");
   voteFullscreen.classList.remove("show");
   adminSection.classList.remove("hidden");
   document.getElementById("adminWho").textContent = `${admin.name} \u00b7 ${admin.email}`;
-  switchAdminTab("dashboard");
+  switchAdminTab(initialTab);
   refreshAll();
 }
 function refreshAll() {
@@ -484,14 +572,19 @@ document.getElementById("adminLogout").onclick = () => {
   publicPage.classList.remove("hidden");
   voterSection.classList.remove("hidden");
   clearAdminToken();
+  sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  sessionStorage.removeItem(ADMIN_TAB_KEY);
   currentAdmin = null;
   resetToStart();
 };
 
 function switchAdminTab(tab) {
-  document.querySelectorAll(".sidebar-link").forEach((b) => b.classList.toggle("active", b.dataset.admintab === tab));
+  const validTabs = ["dashboard", "students", "candidates", "qrcodes", "admins"];
+  const activeTab = validTabs.includes(tab) ? tab : "dashboard";
+  sessionStorage.setItem(ADMIN_TAB_KEY, activeTab);
+  document.querySelectorAll(".sidebar-link").forEach((b) => b.classList.toggle("active", b.dataset.admintab === activeTab));
   ["dashboard", "students", "candidates", "qrcodes", "admins"].forEach((t) => {
-    document.getElementById("adminPanel" + capitalize(t)).classList.toggle("hidden", t !== tab);
+    document.getElementById("adminPanel" + capitalize(t)).classList.toggle("hidden", t !== activeTab);
   });
 }
 document.querySelectorAll(".sidebar-link").forEach((btn) => {
