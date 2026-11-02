@@ -781,6 +781,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
   max-width:760px; padding:18px; border:1px solid var(--line);
   border-radius:16px; background:rgba(18,26,52,.72);
 }
+#candidateList{width:100%; max-width:none;}
 #adminList{display:flex; flex-direction:column; gap:10px;}
 .candidate-position-group{background:rgba(255,255,255,.025); border-radius:12px; padding:14px;}
 .candidate-position-title{
