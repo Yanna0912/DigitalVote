@@ -74,6 +74,7 @@
           <button class="sidebar-link" data-admintab="students">Students</button>
           <button class="sidebar-link" data-admintab="candidates">Candidates</button>
           <button class="sidebar-link" data-admintab="qrcodes">QR Code</button>
+          <button class="sidebar-link" data-admintab="activity">Activity</button>
         </nav>
 
         <div class="sidebar-admin-group">
@@ -144,10 +145,30 @@
           <div id="adminList"></div>
         </section>
 
+        <section class="admin-panel hidden" id="adminPanelActivity">
+          <div class="panel-header-row">
+            <h2>Activity log</h2>
+            <button class="btn-gradient btn-small" id="refreshActivity" type="button">Refresh</button>
+          </div>
+          <div class="activity-messages" id="activityRows">
+            <p class="activity-state">Open Activity to load messages.</p>
+          </div>
+          <button class="btn-secondary activity-more hidden" id="activityLoadMore" type="button">Load older activity</button>
+        </section>
+
       </main>
     </div>
   </div>
 
+</div>
+
+<div class="overlay" id="activityDetailOverlay" aria-hidden="true">
+  <section class="cred-modal activity-detail-modal" role="dialog" aria-modal="true" aria-labelledby="activityDetailTitle">
+    <button class="icon-btn cred-close" id="activityDetailClose" type="button" aria-label="Close">&times;</button>
+    <p class="cred-eyebrow">Activity message</p>
+    <h3 class="cred-name" id="activityDetailTitle"></h3>
+    <div class="activity-detail-facts" id="activityDetailFacts"></div>
+  </section>
 </div>
 
 <!-- New voter registration popup -->

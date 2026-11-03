@@ -692,17 +692,127 @@ document.getElementById("adminLogout").onclick = () => {
 };
 
 function switchAdminTab(tab) {
-  const validTabs = ["dashboard", "students", "candidates", "qrcodes", "admins"];
+  const validTabs = ["dashboard", "students", "candidates", "qrcodes", "admins", "activity"];
   const activeTab = validTabs.includes(tab) ? tab : "dashboard";
   sessionStorage.setItem(ADMIN_TAB_KEY, activeTab);
   document.querySelectorAll(".sidebar-link").forEach((b) => b.classList.toggle("active", b.dataset.admintab === activeTab));
-  ["dashboard", "students", "candidates", "qrcodes", "admins"].forEach((t) => {
+  ["dashboard", "students", "candidates", "qrcodes", "admins", "activity"].forEach((t) => {
     document.getElementById("adminPanel" + capitalize(t)).classList.toggle("hidden", t !== activeTab);
   });
+  if (activeTab === "activity") loadActivity(false);
 }
 document.querySelectorAll(".sidebar-link").forEach((btn) => {
   btn.addEventListener("click", () => switchAdminTab(btn.dataset.admintab));
 });
+
+let activityPage = 1;
+let activityLoading = false;
+let activityEvents = [];
+let activityReturnFocus = null;
+
+function renderActivityEvents(events, append) {
+  const rows = document.getElementById("activityRows");
+  if (!append) {
+    rows.innerHTML = "";
+    activityEvents = [];
+  }
+  if (!events.length && !append) {
+    rows.innerHTML = `<p class="activity-state">No activity messages yet.</p>`;
+    return;
+  }
+  const markup = events.map((event) => {
+    const index = activityEvents.push(event) - 1;
+    return `<button class="activity-message" type="button" data-activity-index="${index}">
+      <span class="activity-message-copy">
+        <strong>${escapeHtml(event.summary)}</strong>
+        <small>Open message</small>
+      </span>
+      <span class="activity-message-arrow" aria-hidden="true">&#8594;</span>
+    </button>`;
+  }).join("");
+  rows.insertAdjacentHTML("beforeend", markup);
+}
+
+function showActivityMessage(event) {
+  const overlay = document.getElementById("activityDetailOverlay");
+  const labels = {
+    recipient: "Email recipient",
+    delivery: "Delivery status",
+    credentialType: "Credential type",
+    block: "Block",
+    count: "Records imported",
+    position: "Position",
+    positionsCount: "Positions selected",
+    username: "Username",
+    votingOpen: "Voting status",
+    party: "Party",
+    source: "Source",
+  };
+  const facts = Object.entries(labels)
+    .filter(([key]) => event.details && event.details[key] !== undefined && event.details[key] !== null && event.details[key] !== "")
+    .map(([key, label]) => {
+      const value = event.details[key] === true ? "Open" : event.details[key] === false ? "Closed" : event.details[key];
+      return `<p><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span></p>`;
+    }).join("");
+
+  document.getElementById("activityDetailTitle").textContent = event.summary || "Activity message";
+  document.getElementById("activityDetailFacts").innerHTML = facts;
+  activityReturnFocus = document.activeElement;
+  overlay.classList.add("show");
+  overlay.setAttribute("aria-hidden", "false");
+  document.getElementById("activityDetailClose").focus();
+}
+
+function closeActivityMessage() {
+  const overlay = document.getElementById("activityDetailOverlay");
+  overlay.classList.remove("show");
+  overlay.setAttribute("aria-hidden", "true");
+  if (activityReturnFocus?.isConnected) activityReturnFocus.focus();
+}
+
+document.getElementById("activityRows").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-activity-index]");
+  if (!button) return;
+  const activity = activityEvents[Number(button.dataset.activityIndex)];
+  if (activity) showActivityMessage(activity);
+});
+document.getElementById("activityDetailClose").onclick = closeActivityMessage;
+document.getElementById("activityDetailOverlay").addEventListener("click", (event) => {
+  if (event.target.id === "activityDetailOverlay") closeActivityMessage();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && document.getElementById("activityDetailOverlay").classList.contains("show")) closeActivityMessage();
+});
+
+async function loadActivity(append = false) {
+  if (activityLoading) return;
+  activityLoading = true;
+  const rows = document.getElementById("activityRows");
+  const moreButton = document.getElementById("activityLoadMore");
+  const refreshButton = document.getElementById("refreshActivity");
+  if (!append) {
+    activityPage = 1;
+    rows.innerHTML = `<p class="activity-state">Loading messages...</p>`;
+  }
+  moreButton.disabled = true;
+  refreshButton.disabled = true;
+  try {
+    const page = append ? activityPage + 1 : 1;
+    const data = await api(`/admin/activity?page=${page}&pageSize=50`, { token: adminToken });
+    activityPage = data.page;
+    renderActivityEvents(data.events || [], append);
+    moreButton.classList.toggle("hidden", !data.hasMore);
+  } catch (err) {
+    if (!append) rows.innerHTML = `<p class="activity-state">${escapeHtml(err.error || "Couldn't load activity messages.")}</p>`;
+  } finally {
+    activityLoading = false;
+    moreButton.disabled = false;
+    refreshButton.disabled = false;
+  }
+}
+
+document.getElementById("refreshActivity").onclick = () => loadActivity(false);
+document.getElementById("activityLoadMore").onclick = () => loadActivity(true);
 
 /* ---- dashboard: stats + election status toggle + live results ---- */
 async function renderStatRow() {

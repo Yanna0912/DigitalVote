@@ -4,6 +4,7 @@ const Papa = require("papaparse");
 const bcrypt = require("bcryptjs");
 const { supabase } = require("../db");
 const { requireAdmin } = require("../auth");
+const { logActivity } = require("../audit");
 const { studentDisplayName, studentNameParts, genPassword, isGmail, asyncHandler } = require("../utils");
 const { sendMail, studentCredentialsEmail } = require("../mailer");
 const { candidateRacePosition } = require("../election");
@@ -21,6 +22,21 @@ router.get("/me", asyncHandler(async (req, res) => {
     .maybeSingle();
   if (error || !admin) return res.status(404).json({ error: "Admin account not found." });
   res.json({ admin });
+}));
+
+router.get("/activity", asyncHandler(async (req, res) => {
+  const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+  const pageSize = Math.min(100, Math.max(1, Number.parseInt(req.query.pageSize, 10) || 50));
+  const start = (page - 1) * pageSize;
+  const { data, error } = await supabase
+    .from("activity_logs")
+    .select("id, actor_role, actor_id, actor_name, action, summary, target_type, target_id, details, created_at")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(start, start + pageSize);
+  if (error) return res.status(500).json({ error: "Couldn't load activity." });
+  const events = data || [];
+  res.json({ events: events.slice(0, pageSize), page, pageSize, hasMore: events.length > pageSize });
 }));
 
 /* ---------------------------- dashboard stats ---------------------------- */
@@ -42,8 +58,18 @@ router.get("/stats", asyncHandler(async (_req, res) => {
 /* ---------------------------- election status ---------------------------- */
 router.post("/settings/voting-open", asyncHandler(async (req, res) => {
   const open = !!req.body.open;
+  const { data: currentSetting } = await supabase.from("settings").select("value").eq("key", "voting_open").maybeSingle();
   const { error } = await supabase.from("settings").upsert({ key: "voting_open", value: open ? "true" : "false" });
   if (error) return res.status(500).json({ error: "Couldn't update election status." });
+  if ((currentSetting?.value === "true") !== open) {
+    await logActivity(req, {
+      action: "election.voting_status_changed",
+      summary: `Voting was ${open ? "opened" : "closed"}.`,
+      targetType: "election",
+      targetId: "voting_status",
+      details: { votingOpen: open },
+    });
+  }
   res.json({ votingOpen: open });
 }));
 
@@ -79,8 +105,22 @@ router.post("/students/:id_no/resend-credentials", asyncHandler(async (req, res)
   if (!mailResult.delivered) {
     const { error: rollbackError } = await supabase.from("students").update({ password_hash: previousPasswordHash }).eq("id_no", student.id_no);
     if (rollbackError) console.error(`[credentials] Failed to restore password hash for ${student.id_no}:`, rollbackError.message);
+    await logActivity(req, {
+      action: "student.credentials_email_failed",
+      summary: `Credential resend failed for ${displayName}.`,
+      targetType: "student",
+      targetId: student.id_no,
+      details: { recipient: student.email, delivery: "failed", credentialType: "password_reset" },
+    });
     return res.status(502).json({ error: "Credentials could not be emailed. The existing password was kept unchanged." });
   }
+  await logActivity(req, {
+    action: "student.credentials_resent",
+    summary: `New voting credentials were emailed to ${displayName}.`,
+    targetType: "student",
+    targetId: student.id_no,
+    details: { recipient: student.email, delivery: "sent", credentialType: "username_and_password" },
+  });
   res.json({
     status: "sent",
     emailed: true,
@@ -100,6 +140,13 @@ router.post("/students", asyncHandler(async (req, res) => {
     if (error.code === "23505") return res.status(409).json({ error: "That Student ID already exists." });
     return res.status(500).json({ error: "Couldn't add that student." });
   }
+  await logActivity(req, {
+    action: "student.roster_added",
+    summary: `Added ${studentDisplayName({ first_name, last_name, suffix })} to the roster.`,
+    targetType: "student",
+    targetId: id_no,
+    details: { block: block || null },
+  });
   res.json({ status: "added" });
 }));
 
@@ -135,6 +182,12 @@ router.post("/students/import", upload.single("file"), asyncHandler(async (req, 
   const { error } = await supabase.from("students").upsert(normalizedRows, { onConflict: "id_no" });
   if (error) return res.status(500).json({ error: "Import failed while writing to the database." });
 
+  await logActivity(req, {
+    action: "student.roster_imported",
+    summary: `Imported ${rows.length} student roster ${rows.length === 1 ? "record" : "records"}.`,
+    targetType: "student_roster",
+    details: { count: rows.length },
+  });
   res.json({ status: "imported", count: rows.length });
 }));
 
@@ -182,6 +235,13 @@ router.post("/candidates", asyncHandler(async (req, res) => {
     position, name, id_no: student.id_no, block: student.block || null, party: party || null, photo: photo || null,
   });
   if (error) return res.status(500).json({ error: "Couldn't add that candidate." });
+  await logActivity(req, {
+    action: "candidate.added",
+    summary: `Added ${name} as a candidate for ${position}.`,
+    targetType: "candidate",
+    targetId: student.id_no,
+    details: { name, position, studentId: student.id_no, party: party || null },
+  });
   res.json({ status: "added" });
 }));
 
@@ -243,8 +303,18 @@ router.post("/admins", asyncHandler(async (req, res) => {
   if (existing) return res.status(409).json({ error: "That username is already taken." });
 
   const password_hash = await bcrypt.hash(password, 10);
-  const { error } = await supabase.from("admins").insert({ name, email, party_list: party_list || null, username, password_hash });
+  const { data: createdAdmin, error } = await supabase.from("admins")
+    .insert({ name, email, party_list: party_list || null, username, password_hash })
+    .select("id")
+    .single();
   if (error) return res.status(500).json({ error: "Couldn't add that admin." });
+  await logActivity(req, {
+    action: "admin.account_added",
+    summary: `Added admin account for ${name}.`,
+    targetType: "admin",
+    targetId: createdAdmin.id,
+    details: { username, email },
+  });
   res.json({ status: "added" });
 }));
 

@@ -1,6 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const { supabase } = require("../db");
+const { logActivity } = require("../audit");
 const { genOtp, studentDisplayName, maskEmail, asyncHandler } = require("../utils");
 const { sendMail, adminOtpEmail } = require("../mailer");
 const { signStudentToken } = require("../auth");
@@ -46,6 +47,15 @@ router.post("/login", asyncHandler(async (req, res) => {
       });
     }
 
+    await logActivity(req, {
+      actor: { role: "admin", id: admin.id, name: admin.name },
+      action: "admin.login_otp_sent",
+      summary: `Login verification code emailed to ${admin.name}.`,
+      targetType: "admin",
+      targetId: admin.id,
+      details: { recipient: admin.email, delivery: "sent", credentialType: "login_otp" },
+    });
+
     return res.json({
       role: "admin",
       status: "otp_sent",
@@ -63,6 +73,13 @@ router.post("/login", asyncHandler(async (req, res) => {
     const { data: setting } = await supabase.from("settings").select("value").eq("key", "voting_open").maybeSingle();
     const votingOpen = setting?.value === "true";
     const token = signStudentToken(student);
+    await logActivity(req, {
+      actor: { role: "student", id_no: student.id_no, name: studentDisplayName(student) },
+      action: "student.login_succeeded",
+      summary: `${studentDisplayName(student)} signed in.`,
+      targetType: "student",
+      targetId: student.id_no,
+    });
     return res.json({
       role: "student",
       token,

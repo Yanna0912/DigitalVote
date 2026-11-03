@@ -1,6 +1,7 @@
 const express = require("express");
 const { supabase } = require("../db");
 const { requireStudent } = require("../auth");
+const { logActivity } = require("../audit");
 const { studentDisplayName, asyncHandler } = require("../utils");
 const { candidateIsEligibleForStudent, candidateRacePosition } = require("../election");
 
@@ -114,6 +115,14 @@ router.post("/vote", requireStudent, asyncHandler(async (req, res) => {
 
   const votedAt = new Date().toISOString();
   await supabase.from("students").update({ voted: true, voted_at: votedAt }).eq("id_no", student.id_no);
+  await logActivity(req, {
+    actor: { role: "student", id_no: student.id_no },
+    action: "student.vote_cast",
+    summary: `${studentDisplayName(student)} submitted a ballot.`,
+    targetType: "student",
+    targetId: student.id_no,
+    details: { positionsCount: rows.length },
+  });
 
   return res.json({ status: "voted", votedAt });
 }));

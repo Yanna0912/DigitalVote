@@ -21,6 +21,7 @@ const path = require("path");
 const Papa = require("papaparse");
 const { createClient } = require("@supabase/supabase-js");
 const { studentNameParts } = require("../src/utils");
+const { logActivity } = require("../src/audit");
 
 async function main() {
   const file = process.argv[2];
@@ -63,7 +64,7 @@ async function main() {
         block: String(get(r, ["block", "section"]) || "").trim(),
       };
     })
-    .filter((r) => r.id_no && r.name);
+    .filter((r) => r.id_no && (r.first_name || r.last_name));
 
   if (!rows.length) {
     console.error("No valid rows found. Make sure the CSV has id_no and name columns.");
@@ -86,6 +87,13 @@ async function main() {
     console.log(`  ...${imported}/${rows.length}`);
   }
 
+  await logActivity(null, {
+    actor: { role: "system", name: "CLI roster importer" },
+    action: "student.roster_imported",
+    summary: `Imported ${imported} student roster ${imported === 1 ? "record" : "records"} from the command line.`,
+    targetType: "student_roster",
+    details: { count: imported, source: path.basename(fullPath) },
+  });
   console.log(`Done. Imported/updated ${imported} student(s).`);
 }
 

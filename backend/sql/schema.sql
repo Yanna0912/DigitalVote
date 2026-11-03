@@ -115,6 +115,25 @@ insert into settings (key, value) values ('voting_open', 'false')
   on conflict (key) do nothing;
 
 -- ---------------------------------------------------------------------
+-- activity_logs
+-- Admin-visible audit trail. Never store passwords, OTPs, or vote choices.
+-- ---------------------------------------------------------------------
+create table if not exists activity_logs (
+  id          uuid primary key default gen_random_uuid(),
+  actor_role  text not null,
+  actor_id    text,
+  actor_name  text not null,
+  action      text not null,
+  summary     text not null,
+  target_type text,
+  target_id   text,
+  details     jsonb not null default '{}'::jsonb,
+  created_at  timestamptz not null default now()
+);
+create index if not exists idx_activity_logs_created_at
+  on activity_logs (created_at desc);
+
+-- ---------------------------------------------------------------------
 -- Row Level Security
 -- The backend talks to Supabase using the service role key, which
 -- bypasses RLS, so the API remains the only door into this data. RLS is
@@ -128,6 +147,7 @@ alter table admin_password_reset_codes enable row level security;
 alter table candidates enable row level security;
 alter table votes enable row level security;
 alter table settings enable row level security;
+alter table activity_logs enable row level security;
 
 -- Name fields for existing installations.
 alter table students add column if not exists first_name text;

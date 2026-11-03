@@ -17,7 +17,10 @@ open/closed switch), and CSV roster import.
    case-insensitive unique index so each student email can be used once.
    Resolve any duplicate student emails before rerunning if the index creation
    reports existing duplicates. The schema also adds the separate admin
-   password-reset OTP table.
+  password-reset OTP table and the admin activity log. Admins can view
+  credential delivery, account changes, sign-ins, voting status changes,
+  and ballot-submission timestamps from the Activity tab. The log never
+  stores passwords, OTP values, or vote choices.
 3. Go to **Project Settings → API** and copy:
    - **Project URL** → `SUPABASE_URL`
    - **service_role key** (not the `anon` key — the backend needs to

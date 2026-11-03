@@ -1,6 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const { supabase } = require("../db");
+const { logActivity } = require("../audit");
 const { genUsername, studentDisplayName, genPassword, asyncHandler } = require("../utils");
 const { sendMail, studentCredentialsEmail } = require("../mailer");
 
@@ -91,9 +92,25 @@ router.post("/register", asyncHandler(async (req, res) => {
       registered_at: null,
     }).eq("id_no", id_no).eq("username", username);
     if (rollbackError) console.error(`[registration] Failed to roll back credentials for ${id_no}:`, rollbackError.message);
+    await logActivity(req, {
+      actor: { role: "student", id_no, name: displayName },
+      action: "student.credentials_email_failed",
+      summary: `Credential email failed for ${displayName}.`,
+      targetType: "student",
+      targetId: id_no,
+      details: { recipient: email, delivery: "failed", credentialType: "username_and_password" },
+    });
     return res.status(502).json({ error: "Credentials could not be emailed. Please try again later or contact the election officer." });
   }
 
+  await logActivity(req, {
+    actor: { role: "student", id_no, name: displayName },
+    action: "student.credentials_issued",
+    summary: `Voting credentials were emailed to ${displayName}.`,
+    targetType: "student",
+    targetId: id_no,
+    details: { recipient: email, delivery: "sent", credentialType: "username_and_password" },
+  });
   return res.json({
     status: "registered",
     emailed: true,
@@ -129,9 +146,25 @@ router.post("/resend", asyncHandler(async (req, res) => {
   if (!mailResult.delivered) {
     const { error: rollbackError } = await supabase.from("students").update({ password_hash: previousPasswordHash }).eq("id_no", id_no);
     if (rollbackError) console.error(`[credentials] Failed to restore password hash for ${id_no}:`, rollbackError.message);
+    await logActivity(req, {
+      actor: { role: "student", id_no, name: studentDisplayName(student) },
+      action: "student.credentials_email_failed",
+      summary: `Credential resend failed for ${studentDisplayName(student)}.`,
+      targetType: "student",
+      targetId: id_no,
+      details: { recipient: email, delivery: "failed", credentialType: "password_reset" },
+    });
     return res.status(502).json({ error: "Credentials could not be emailed. Your existing password was kept unchanged." });
   }
 
+  await logActivity(req, {
+    actor: { role: "student", id_no, name: studentDisplayName(student) },
+    action: "student.credentials_resent",
+    summary: `New voting credentials were emailed to ${studentDisplayName(student)}.`,
+    targetType: "student",
+    targetId: id_no,
+    details: { recipient: email, delivery: "sent", credentialType: "password_reset" },
+  });
   return res.json({ status: "resent", emailed: true, message: `A new password was emailed to ${email}.` });
 }));
 

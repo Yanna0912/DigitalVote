@@ -1,6 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const { supabase } = require("../db");
+const { logActivity } = require("../audit");
 const { genOtp, isGmail, asyncHandler } = require("../utils");
 const { signAdminToken } = require("../auth");
 const { sendMail, adminPasswordResetEmail } = require("../mailer");
@@ -34,9 +35,20 @@ router.post("/signup", asyncHandler(async (req, res) => {
   if (existing) return res.status(409).json({ error: "That username is already taken." });
 
   const password_hash = await bcrypt.hash(password, 10);
-  const { error } = await supabase.from("admins").insert({ name, email, party_list: party_list || null, username, password_hash });
+  const { data: createdAdmin, error } = await supabase.from("admins")
+    .insert({ name, email, party_list: party_list || null, username, password_hash })
+    .select("id")
+    .single();
   if (error) return res.status(500).json({ error: "Couldn't create the admin account. Please try again." });
 
+  await logActivity(req, {
+    actor: { role: "public", name: "Admin self-signup" },
+    action: "admin.account_self_registered",
+    summary: `${name} created an admin account.`,
+    targetType: "admin",
+    targetId: createdAdmin.id,
+    details: { username, email },
+  });
   return res.json({ status: "created", message: "Admin account created. You can now log in." });
 }));
 
@@ -69,6 +81,13 @@ router.post("/verify-otp", asyncHandler(async (req, res) => {
   await supabase.from("admin_otp_codes").delete().eq("id", otpRow.id);
 
   const token = signAdminToken(admin);
+  await logActivity(req, {
+    actor: { role: "admin", id: admin.id, name: admin.name },
+    action: "admin.login_succeeded",
+    summary: `${admin.name} signed in after email verification.`,
+    targetType: "admin",
+    targetId: admin.id,
+  });
   return res.json({ token, admin: { id: admin.id, name: admin.name, email: admin.email, username: admin.username, party_list: admin.party_list } });
 
   
@@ -127,6 +146,14 @@ router.post("/forgot-password", asyncHandler(async (req, res) => {
     return res.status(502).json({ error: "We couldn't send the reset code. Please try again later." });
   }
 
+  await logActivity(req, {
+    actor: { role: "admin", id: admin.id, name: admin.name },
+    action: "admin.password_reset_code_sent",
+    summary: `Password reset code emailed to ${admin.name}.`,
+    targetType: "admin",
+    targetId: admin.id,
+    details: { recipient: admin.email, delivery: "sent", credentialType: "password_reset_code" },
+  });
   return res.json({ status: "sent", message: "If that email belongs to an admin account, a reset code has been sent." });
 }));
 
@@ -141,7 +168,7 @@ router.post("/reset-password", asyncHandler(async (req, res) => {
 
   const { data: admin, error: adminError } = await supabase
     .from("admins")
-    .select("id")
+    .select("id, name")
     .ilike("email", email)
     .maybeSingle();
   if (adminError) return res.status(500).json({ error: "Couldn't verify the reset request. Please try again." });
@@ -185,6 +212,13 @@ router.post("/reset-password", asyncHandler(async (req, res) => {
   const { error: updateError } = await supabase.from("admins").update({ password_hash }).eq("id", admin.id);
   if (updateError) return res.status(500).json({ error: "Couldn't update the password. Request a new reset code and try again." });
 
+  await logActivity(req, {
+    actor: { role: "admin", id: admin.id, name: admin.name },
+    action: "admin.password_reset",
+    summary: "An admin password was reset.",
+    targetType: "admin",
+    targetId: admin.id,
+  });
   return res.json({ status: "reset", message: "Your password was changed. You can now log in." });
 }));
 
