@@ -1105,14 +1105,13 @@ const addCandidateOverlay = document.getElementById("addCandidateOverlay");
 const candidateSearch = document.getElementById("candStudentSearch");
 const candidateStudentSelect = document.getElementById("candStudent");
 const candidateSearchStatus = document.getElementById("candidateSearchStatus");
-const MAX_CANDIDATE_SEARCH_RESULTS = 100;
 
 function renderCandidateStudentSearch() {
   const query = candidateSearch.value.trim().toLocaleLowerCase();
   candidateStudentSelect.value = "";
 
-  if (query.length < 2) {
-    candidateStudentSelect.innerHTML = `<option value="">Type at least 2 characters to search</option>`;
+  if (!query) {
+    candidateStudentSelect.innerHTML = `<option value="">Start typing to see students</option>`;
     candidateStudentSelect.disabled = true;
     candidateSearchStatus.textContent = cachedRoster.length
       ? "Search by student name, ID, or block."
@@ -1124,19 +1123,16 @@ function renderCandidateStudentSearch() {
     [student.name, student.id_no, student.block]
       .some((value) => String(value || "").toLocaleLowerCase().includes(query))
   );
-  const visibleMatches = matches.slice(0, MAX_CANDIDATE_SEARCH_RESULTS);
-  candidateStudentSelect.innerHTML = visibleMatches.length
+  candidateStudentSelect.innerHTML = matches.length
     ? `<option value="">Select a student (${matches.length} match${matches.length === 1 ? "" : "es"})</option>` +
-      visibleMatches.map((student) =>
+      matches.map((student) =>
         `<option value="${escapeHtml(student.id_no)}">${escapeHtml(student.name)} | ${escapeHtml(student.id_no)}${student.block ? ` | ${escapeHtml(student.block)}` : ""}</option>`
       ).join("")
     : `<option value="">No matching students</option>`;
-  candidateStudentSelect.disabled = visibleMatches.length === 0;
+  candidateStudentSelect.disabled = matches.length === 0;
 
   if (!matches.length) {
     candidateSearchStatus.textContent = "No candidates match. Try a different name, ID, or block.";
-  } else if (matches.length > MAX_CANDIDATE_SEARCH_RESULTS) {
-    candidateSearchStatus.textContent = `Showing the first ${MAX_CANDIDATE_SEARCH_RESULTS} of ${matches.length} candidates. Add more search terms to narrow the results.`;
   } else {
     candidateSearchStatus.textContent = `${matches.length} candidate${matches.length === 1 ? "" : "s"} found.`;
   }
