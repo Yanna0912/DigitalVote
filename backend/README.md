@@ -166,8 +166,10 @@ ran only part of `schema.sql`, do not run its unrelated legacy RLS statements;
 in particular, `admin_password_reset_codes` is created earlier in the full
 schema and is not required for election storage.
 
-If Admin → Admin & Staff accounts reports that the admin account database is
-out of date, apply the same schema to add any missing account columns.
+If Admin → Admin & Staff accounts reports a missing `role` column, run
+`ALTER TABLE public.admins ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'admin';`
+in Supabase. This targeted migration avoids rerunning unrelated legacy schema
+changes.
 
 ## 8. Deploy to Render
 

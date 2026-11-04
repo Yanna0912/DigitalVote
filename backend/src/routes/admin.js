@@ -416,12 +416,17 @@ router.get("/results", asyncHandler(async (req, res) => {
 
 /* ---------------------------- admin accounts ---------------------------- */
 router.get("/admins", asyncHandler(async (_req, res) => {
-  const { data, error } = await supabase.from("admins").select("id, name, email, username, party_list, role, created_at").order("created_at");
+  const { data, error } = await supabase.from("admins").select("id, name, email, username, role, created_at").order("created_at");
   if (error) {
     console.error("[admin] Failed to load admin accounts:", error.code, error.message);
-    if (["42P01", "42703", "PGRST204", "PGRST205"].includes(error.code)) {
+    if (["42703", "PGRST204"].includes(error.code)) {
       return res.status(503).json({
-        error: "The admin account database is out of date. Apply backend/sql/schema.sql in Supabase, then try again.",
+        error: "The admins table is missing a required column. In Supabase, run: ALTER TABLE public.admins ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'admin';",
+      });
+    }
+    if (["42P01", "PGRST205"].includes(error.code)) {
+      return res.status(503).json({
+        error: "The admins table is missing from this Supabase project. Check that the backend is connected to the correct project and apply the base database schema.",
       });
     }
     return res.status(500).json({ error: "Couldn't load admin accounts." });
@@ -432,7 +437,6 @@ router.get("/admins", asyncHandler(async (_req, res) => {
 router.post("/admins", asyncHandler(async (req, res) => {
   const name = String(req.body.name || "").trim();
   const email = String(req.body.email || "").trim();
-  const party_list = String(req.body.party_list || "").trim();
   const username = String(req.body.username || "").trim();
   const password = String(req.body.password || "");
   const requestedRole = String(req.body.role || "staff").trim().toLowerCase();
@@ -448,7 +452,7 @@ router.post("/admins", asyncHandler(async (req, res) => {
 
   const password_hash = await bcrypt.hash(password, 10);
   const { data: createdAdmin, error } = await supabase.from("admins")
-    .insert({ name, email, party_list: party_list || null, username, password_hash, role })
+    .insert({ name, email, username, password_hash, role })
     .select("id")
     .single();
   if (error?.code === "23505") return res.status(409).json({ error: "That username or email is already in use." });

@@ -82,13 +82,13 @@
           <button class="sidebar-link" data-admintab="admins">Admin</button>
         </div>
 
-        <div class="sidebar-footer">
-          <p class="sidebar-who" id="adminWho"></p>
-          <button class="btn-logout" id="adminLogout">Log out</button>
-        </div>
       </aside>
 
       <main class="admin-main">
+        <div class="admin-account-bar">
+          <p class="admin-account-name" id="adminWho"></p>
+          <button class="btn-logout" id="adminLogout" type="button">Log out</button>
+        </div>
 
         <section class="admin-panel hidden" id="adminPanelVotedesk">
           <div id="voteDeskDashboard"></div>
@@ -381,10 +381,6 @@
     <div class="field-dark">
       <label>Gmail address</label>
       <input type="email" id="admEmail2" placeholder="name@gmail.com">
-    </div>
-    <div class="field-dark">
-      <label>Party list represented</label>
-      <input type="text" id="admPartyList" placeholder="Student Unity Party">
     </div>
     <div class="field-dark">
       <label>Username</label>

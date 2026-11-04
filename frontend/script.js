@@ -2252,7 +2252,7 @@ document.getElementById("downloadQrBtn").onclick = () => {
   link.click();
 };
 
-/* ---- admin accounts: list + Add Admin modal (no public sign-up) ---- */
+/* ---- admin accounts: list + Add Staff modal (no public sign-up) ---- */
 async function renderAdminList() {
   const el = document.getElementById("adminList");
   let admins;
@@ -2275,7 +2275,6 @@ async function renderAdminList() {
                 ${isSelf ? '<span class="status-pill yes">You</span>' : ""}
               </div>
               <div class="admin-list-meta">${escapeHtml(a.username)} &middot; ${escapeHtml(a.email)}</div>
-              ${a.party_list ? `<div class="admin-list-party">Party list: ${escapeHtml(a.party_list)}</div>` : ""}
             </div>
           </div>`;
       }).join("")
@@ -2295,7 +2294,7 @@ document.getElementById("toggleAdminPassword").onclick = () => {
 };
 document.getElementById("openAddAdminModal").onclick = () => {
   document.getElementById("admError2").textContent = "";
-  ["admName", "admEmail2", "admPartyList", "admUsername2", "admPassword2"].forEach((id) => {
+  ["admName", "admEmail2", "admUsername2", "admPassword2"].forEach((id) => {
     document.getElementById(id).value = "";
   });
   addAdminOverlay.classList.add("show");
@@ -2313,12 +2312,11 @@ document.getElementById("addAdminBtn").onclick = async () => {
   errorEl.textContent = "";
   const name = document.getElementById("admName").value.trim();
   const email = document.getElementById("admEmail2").value.trim();
-  const party_list = document.getElementById("admPartyList").value.trim();
   const username = document.getElementById("admUsername2").value.trim();
   const password = document.getElementById("admPassword2").value;
   try {
-    await api("/admin/admins", { method: "POST", token: adminToken, body: { name, email, party_list, username, password, role: "staff" } });
-    ["admName", "admEmail2", "admPartyList", "admUsername2", "admPassword2"].forEach((id) => { document.getElementById(id).value = ""; });
+    await api("/admin/admins", { method: "POST", token: adminToken, body: { name, email, username, password, role: "staff" } });
+    ["admName", "admEmail2", "admUsername2", "admPassword2"].forEach((id) => { document.getElementById(id).value = ""; });
     renderAdminList();
     closeAddAdminModal();
   } catch (err) {
