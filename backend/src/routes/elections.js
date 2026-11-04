@@ -34,13 +34,25 @@ function electionSummary(election, voters = [], votes = []) {
   };
 }
 
+function isElectionSchemaError(error) {
+  return ["42P01", "42703", "PGRST204", "PGRST205"].includes(error?.code);
+}
+
 router.get("/", asyncHandler(async (_req, res) => {
   const { data: elections, error } = await supabase
     .from("elections")
     .select("id, name, year, election_date, status, voting_open, is_sample, created_at")
     .order("year", { ascending: false })
     .order("created_at", { ascending: false });
-  if (error) return res.status(500).json({ error: "Couldn't load elections." });
+  if (error) {
+    console.error("[elections] Failed to load election list:", error.code, error.message);
+    if (isElectionSchemaError(error)) {
+      return res.status(503).json({
+        error: "Election database tables are missing or out of date. Apply backend/sql/schema.sql in Supabase, then try again.",
+      });
+    }
+    return res.status(500).json({ error: "Couldn't load elections." });
+  }
   const ids = (elections || []).map((election) => election.id);
   const [{ data: voters, error: voterError }, { data: votes, error: voteError }] = ids.length
     ? await Promise.all([
@@ -411,17 +423,19 @@ router.post("/:id/voting-open", asyncHandler(async (req, res) => {
   if (!election) return res.status(404).json({ error: "Election not found." });
   if (election.status === "Certified" || election.status === "Archived") return res.status(409).json({ error: "Certified or archived elections cannot be reopened." });
   const { data, error } = await supabase.from("elections")
-    .update({ voting_open: open, status: open ? "Open" : "Upcoming", updated_at: new Date().toISOString() })
+    .update({ voting_open: open, status: open ? "Open" : "Archived", updated_at: new Date().toISOString() })
     .eq("id", election.id)
     .select("*")
     .single();
   if (error) return res.status(500).json({ error: "Couldn't update election voting status." });
   await logActivity(req, {
-    action: "election.voting_status_changed",
-    summary: `Voting was ${open ? "opened" : "closed"} for ${election.name}.`,
+    action: open ? "election.voting_status_changed" : "election.archived",
+    summary: open
+      ? `Voting was opened for ${election.name}.`
+      : `Voting was closed and ${election.name} was automatically archived.`,
     targetType: "election",
     targetId: election.id,
-    details: { votingOpen: open, year: election.year },
+    details: { votingOpen: open, status: data.status, year: election.year },
   });
   res.json({ election: electionSummary(data), votingOpen: open });
 }));

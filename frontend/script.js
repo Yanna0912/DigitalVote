@@ -62,7 +62,6 @@ let adminToken = sessionStorage.getItem("ccdi_admin_token") || null;
 let currentStudent = null;
 let currentAdmin = null;
 let pendingAdminCreds = null; // {username, password} kept only for the OTP step, cleared right after
-let loginStatusMessage = "";
 
 function setStudentToken(t) { studentToken = t; sessionStorage.setItem("ccdi_student_token", t); }
 function clearStudentToken() { studentToken = null; sessionStorage.removeItem("ccdi_student_token"); }
@@ -153,7 +152,6 @@ const credMessage = document.getElementById("credMessage");
 const otpOverlay = document.getElementById("otpOverlay");
 const registrationOverlay = document.getElementById("registrationOverlay");
 const forgotPasswordOverlay = document.getElementById("forgotPasswordOverlay");
-const adminSignupOverlay = document.getElementById("adminSignupOverlay");
 
 let waitingPoll = null;
 
@@ -171,13 +169,7 @@ function renderEntryStep() {
       ${loginFormHtml()}
     </div>`;
 
-  document.getElementById("loginStatus").textContent = loginStatusMessage;
-  loginStatusMessage = "";
   document.getElementById("tabRegisterBtn").onclick = openRegistrationModal;
-  document.getElementById("adminSignupLink").onclick = (event) => {
-    event.preventDefault();
-    openAdminSignup();
-  };
   document.getElementById("forgotAdminPassword").onclick = (event) => {
     event.preventDefault();
     openAdminPasswordReset();
@@ -249,8 +241,7 @@ document.getElementById("otpClose")?.addEventListener("click", () => otpOverlay.
 registrationOverlay.addEventListener("click", (e) => { if (e.target === registrationOverlay) closeRegistrationModal(); });
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
-  if (adminSignupOverlay.classList.contains("show")) closeAdminSignup();
-  else if (registrationOverlay.classList.contains("show")) closeRegistrationModal();
+  if (registrationOverlay.classList.contains("show")) closeRegistrationModal();
 });
 
 
@@ -265,68 +256,12 @@ function loginFormHtml() {
     </div>
     <p class="forgot-password-link"><a href="#" id="forgotAdminPassword">Forgot  password?</a></p>
     <p class="error-text" id="loginError"></p>
-    <p class="panel-note" id="loginStatus" aria-live="polite"></p>
     <button class="btn btn-primary" id="btnLogin">Log in</button>
     <div class="signin-block">
       <p class="signin-block-title">No credentials yet?</p>
       <button class="btn-secondary" id="tabRegisterBtn" type="button">Register</button>
-      <p class="admin-signup-link"><a href="#" id="adminSignupLink">Election officer? Create an admin account</a></p>
     </div>`;
 }
-
-function openAdminSignup() {
-  ["adminSignupName", "adminSignupEmail", "adminSignupParty", "adminSignupUsername", "adminSignupPassword"]
-    .forEach((id) => { document.getElementById(id).value = ""; });
-  document.getElementById("adminSignupError").textContent = "";
-  adminSignupOverlay.classList.add("show");
-  document.getElementById("adminSignupName").focus();
-}
-
-function closeAdminSignup() {
-  adminSignupOverlay.classList.remove("show");
-}
-
-async function submitAdminSignup() {
-  const name = document.getElementById("adminSignupName").value.trim();
-  const email = document.getElementById("adminSignupEmail").value.trim();
-  const party_list = document.getElementById("adminSignupParty").value.trim();
-  const username = document.getElementById("adminSignupUsername").value.trim();
-  const password = document.getElementById("adminSignupPassword").value;
-  const errorEl = document.getElementById("adminSignupError");
-  const button = document.getElementById("adminSignupSubmit");
-  errorEl.textContent = "";
-  if (!name || !email || !username || !password) {
-    errorEl.textContent = "Enter your name, Gmail address, username, and password.";
-    return;
-  }
-  if (password.length < 8) {
-    errorEl.textContent = "Password should be at least 8 characters.";
-    return;
-  }
-
-  button.disabled = true;
-  try {
-    const data = await api("/auth/admin/signup", {
-      method: "POST",
-      body: { name, email, party_list, username, password },
-    });
-    closeAdminSignup();
-    loginStatusMessage = data.message || "Admin account created. Log in to continue.";
-    renderEntryStep();
-    document.getElementById("loginUser").value = username;
-    document.getElementById("loginPass").focus();
-  } catch (error) {
-    errorEl.textContent = error.error || "Couldn't create the admin account.";
-  } finally {
-    button.disabled = false;
-  }
-}
-
-document.getElementById("adminSignupClose").addEventListener("click", closeAdminSignup);
-document.getElementById("adminSignupSubmit").addEventListener("click", submitAdminSignup);
-adminSignupOverlay.addEventListener("click", (event) => {
-  if (event.target === adminSignupOverlay) closeAdminSignup();
-});
 
 function openAdminPasswordReset() {
   document.getElementById("resetAdminEmail").value = "";
@@ -738,11 +673,9 @@ function openAdminDashboard(admin, initialTab = "votedesk") {
   document.getElementById("adminWho").textContent = `${admin.name} \u00b7 ${admin.email}`;
   document.querySelector(".admin-sub").textContent = isStaffAccount() ? "Staff console" : "Admin console";
   switchAdminTab(initialTab);
-  if (isStaffAccount()) {
-    loadVoteDeskElections();
-  } else {
-    refreshAll();
-  }
+  loadVoteDeskElections().then(() => {
+    if (!isStaffAccount()) refreshAll();
+  });
   startDashboardRefresh();
 }
 
@@ -922,6 +855,7 @@ let voteDeskPersistentElections = [];
 const voteDeskElectionDetails = new Map();
 let voteDeskLoadError = "";
 let voteDeskLoading = false;
+let voteDeskLoadPromise = null;
 
 function voteDeskIsPersistent(election = voteDeskElection()) {
   return Boolean(election?.persisted);
@@ -933,45 +867,50 @@ function voteDeskElection() {
     || voteDeskElections[0];
 }
 
-async function loadVoteDeskElections() {
-  if (voteDeskLoading) return;
-  voteDeskLoading = true;
-  const storedElectionId = sessionStorage.getItem("ccdi_votedesk_election_id");
-  document.getElementById("openAddStudentModal").classList.toggle("hidden", Boolean(storedElectionId));
-  document.getElementById("openAddCandidateModal").classList.toggle("hidden", Boolean(storedElectionId));
-  voteDeskLoadError = "";
-  renderVoteDeskDashboard();
-  try {
-    const data = await api("/admin/elections", { token: adminToken });
-    voteDeskPersistentElections = (data.elections || []).map((election) => ({
-      ...election,
-      title: election.title || election.name,
-      date: election.date || election.election_date,
-      blocks: [],
-      positions: [],
-      voters: [],
-      blankBallots: 0,
-      persisted: true,
-    }));
-    const storedElectionExists = [...voteDeskElections, ...voteDeskPersistentElections]
-      .some((election) => election.id === storedElectionId);
-    if (storedElectionExists) {
-      voteDeskSelectedId = storedElectionId;
-    } else if (voteDeskPersistentElections.length) {
-      voteDeskSelectedId = voteDeskPersistentElections[0].id;
-      sessionStorage.setItem("ccdi_votedesk_election_id", voteDeskSelectedId);
-    } else {
-      voteDeskSelectedId = voteDeskElections[0].id;
-      sessionStorage.removeItem("ccdi_votedesk_election_id");
-    }
-    if (voteDeskIsPersistent()) await loadVoteDeskElectionDetails(voteDeskSelectedId);
-  } catch (error) {
-    voteDeskLoadError = error.error || "Couldn't load saved elections.";
-  } finally {
-    voteDeskLoading = false;
+function loadVoteDeskElections() {
+  if (voteDeskLoadPromise) return voteDeskLoadPromise;
+  voteDeskLoadPromise = (async () => {
+    voteDeskLoading = true;
+    const storedElectionId = sessionStorage.getItem("ccdi_votedesk_election_id");
+    document.getElementById("openAddStudentModal").classList.toggle("hidden", Boolean(storedElectionId));
+    document.getElementById("openAddCandidateModal").classList.toggle("hidden", Boolean(storedElectionId));
+    voteDeskLoadError = "";
     renderVoteDeskDashboard();
-  }
-  await refreshSelectedElectionPanels();
+    try {
+      const data = await api("/admin/elections", { token: adminToken });
+      voteDeskPersistentElections = (data.elections || []).map((election) => ({
+        ...election,
+        title: election.title || election.name,
+        date: election.date || election.election_date,
+        blocks: [],
+        positions: [],
+        voters: [],
+        blankBallots: 0,
+        persisted: true,
+      }));
+      const storedElectionExists = [...voteDeskElections, ...voteDeskPersistentElections]
+        .some((election) => election.id === storedElectionId);
+      if (storedElectionExists) {
+        voteDeskSelectedId = storedElectionId;
+      } else if (voteDeskPersistentElections.length) {
+        voteDeskSelectedId = voteDeskPersistentElections[0].id;
+        sessionStorage.setItem("ccdi_votedesk_election_id", voteDeskSelectedId);
+      } else {
+        voteDeskSelectedId = voteDeskElections[0].id;
+        sessionStorage.removeItem("ccdi_votedesk_election_id");
+      }
+      if (voteDeskIsPersistent()) await loadVoteDeskElectionDetails(voteDeskSelectedId);
+    } catch (error) {
+      voteDeskLoadError = error.error || "Couldn't load saved elections.";
+    } finally {
+      voteDeskLoading = false;
+      renderVoteDeskDashboard();
+    }
+    await refreshSelectedElectionPanels();
+  })().finally(() => {
+    voteDeskLoadPromise = null;
+  });
+  return voteDeskLoadPromise;
 }
 
 async function loadVoteDeskElectionDetails(electionId) {
@@ -1100,6 +1039,9 @@ function renderVoteDeskDashboard() {
   const availableElections = [...voteDeskElections, ...voteDeskPersistentElections]
     .filter((item, index, list) => list.findIndex((other) => other.id === item.id) === index)
     .sort((a, b) => b.year - a.year);
+  const currentElections = availableElections.filter((item) => item.status !== "Archived");
+  const archivedElections = availableElections.filter((item) => item.status === "Archived");
+  const electionOption = (item) => `<button type="button" role="menuitem" class="vd-election-option ${item.id === election.id ? "is-selected" : ""}" data-vd-action="select-election" data-election-id="${escapeHtml(item.id)}"><span class="vd-election-option-copy"><strong>${item.year} · ${escapeHtml(item.title.replace(`${item.year} `, ""))}</strong><small>${escapeHtml(item.status)} · ${escapeHtml(item.date)}</small></span><span class="vd-election-check">${item.id === election.id ? "✓" : ""}</span></button>`;
   const registered = election.voters.length;
   const voted = election.voters.filter((voter) => voter.voted).length;
   const credentials = election.voters.filter((voter) => voter.hasCredentials).length;
@@ -1143,12 +1085,12 @@ function renderVoteDeskDashboard() {
       <div class="vd-page-title"><span class="vd-eyebrow">Election dashboard ${election.sample ? '<span class="vd-sample-chip">SAMPLE DATA</span>' : ""}</span><h1>${escapeHtml(election.title)}</h1>
         <div class="vd-meta"><span class="vd-status vd-status-${voteDeskStatusClass(election.status)}">${escapeHtml(election.status)}</span>${election.votingOpen ? '<span class="vd-status vd-status-winner">Voting open</span>' : ""}<span>${escapeHtml(election.date)}</span><span>${election.ballotsCast.toLocaleString()} ballots cast</span></div>
       </div>
-      ${voteDeskIsPersistent(election) ? `<div class="vd-election-management">${election.status !== "Certified" && election.status !== "Archived" ? `<button class="vd-button vd-button-primary" type="button" data-vd-action="toggle-voting">${election.votingOpen ? "Close voting" : "Open voting"}</button>` : ""}${!election.votingOpen && election.status !== "Certified" && election.status !== "Archived" ? `<button class="vd-button" type="button" data-vd-action="certify-election">Certify results</button>` : ""}${!election.votingOpen && election.status === "Certified" ? `<button class="vd-button" type="button" data-vd-action="archive-election">Archive election</button>` : ""}</div>` : ""}
+      ${voteDeskIsPersistent(election) ? `<div class="vd-election-management">${election.status !== "Certified" && election.status !== "Archived" ? `<button class="vd-button vd-button-primary" type="button" data-vd-action="toggle-voting">${election.votingOpen ? "Close & archive" : "Open voting"}</button>` : ""}${!election.votingOpen && election.status !== "Certified" && election.status !== "Archived" ? `<button class="vd-button" type="button" data-vd-action="certify-election">Certify results</button>` : ""}${!election.votingOpen && election.status === "Certified" ? `<button class="vd-button" type="button" data-vd-action="archive-election">Archive election</button>` : ""}</div>` : ""}
     </header>
     <div class="vd-toolbar">
       <div class="vd-election-picker">
-        <button class="vd-button vd-button-primary" type="button" data-vd-action="toggle-elections" aria-expanded="${voteDeskDropdownOpen}">${election.year} election <span aria-hidden="true">&#9662;</span></button>
-        ${voteDeskDropdownOpen ? `<div class="vd-election-menu" role="menu">${availableElections.map((item) => `<button type="button" role="menuitem" class="vd-election-option ${item.id === election.id ? "is-selected" : ""}" data-vd-action="select-election" data-election-id="${escapeHtml(item.id)}"><span class="vd-election-option-copy"><strong>${item.year} · ${escapeHtml(item.title.replace(`${item.year} `, ""))}</strong><small>${escapeHtml(item.status)} · ${escapeHtml(item.date)}</small></span><span class="vd-election-check">${item.id === election.id ? "✓" : ""}</span></button>`).join("")}${voteDeskLoadError ? `<p class="vd-load-error">${escapeHtml(voteDeskLoadError)}</p>` : ""}<div class="vd-election-menu-divider"></div><button class="vd-create-election-row" type="button" data-vd-action="create-election">+ Create new election</button></div>` : ""}
+        <button class="vd-button vd-button-primary" type="button" data-vd-action="toggle-elections" aria-expanded="${voteDeskDropdownOpen}">${escapeHtml(election.title)} <span aria-hidden="true">&#9662;</span></button>
+        ${voteDeskDropdownOpen ? `<div class="vd-election-menu" role="menu">${currentElections.length ? `<p class="vd-election-group-title">Elections</p>${currentElections.map(electionOption).join("")}` : ""}${archivedElections.length ? `<div class="vd-election-menu-divider"></div><p class="vd-election-group-title">Archived</p>${archivedElections.map(electionOption).join("")}` : ""}${voteDeskLoadError ? `<p class="vd-load-error">${escapeHtml(voteDeskLoadError)}</p>` : ""}<div class="vd-election-menu-divider"></div><button class="vd-create-election-row" type="button" data-vd-action="create-election">+ Create new election</button></div>` : ""}
       </div>
       <button class="vd-button" type="button" data-vd-action="participants">Participants</button>
       <button class="vd-button" type="button" data-vd-action="candidates">Candidates</button>
@@ -1741,7 +1683,7 @@ async function renderStatRow() {
       </div>`
     : `<button class="stat-card status-card ${open ? "status-open" : "status-closed"}" id="statusCard">
         <span><span class="status-dot"></span><strong>${open ? "Voting OPEN" : "Voting CLOSED"}</strong></span>
-        <span class="status-toggle-label">Click to ${open ? "close" : "open"} voting</span>
+        <span class="status-toggle-label">Click to ${open ? (voteDeskIsPersistent() ? "close and archive" : "close") : "open"} voting</span>
       </button>`;
 
   const chartTotal = Math.max(1, stats.total);
@@ -1772,6 +1714,7 @@ async function renderStatRow() {
 
 async function renderResultsPanel() {
   const el = document.getElementById("resultsCard");
+  const electionName = voteDeskIsPersistent() ? voteDeskElection().title : "";
   const header = (updatedAt = "Waiting for results…") => `
     <div class="live-results-header">
       <div>
@@ -1779,6 +1722,7 @@ async function renderResultsPanel() {
           <h3>Election results</h3>
           <span class="live-results-indicator">LIVE</span>
         </div>
+        ${electionName ? `<p class="live-results-election-name">${escapeHtml(electionName)}</p>` : ""}
         <p class="live-results-meta" aria-live="polite">Auto-refreshes every 15 seconds · ${updatedAt}</p>
       </div>
       <button class="btn-gradient live-results-refresh" id="refreshLiveResults" type="button">Refresh now</button>
@@ -2315,8 +2259,8 @@ async function renderAdminList() {
   try {
     const data = await api("/admin/admins", { token: adminToken });
     admins = data.admins || [];
-  } catch (_err) {
-    el.innerHTML = `<p class="error-text">Couldn't load admin accounts.</p>`;
+  } catch (error) {
+    el.innerHTML = `<p class="error-text">${escapeHtml(error.error || "Couldn't load admin accounts.")}</p>`;
     return;
   }
   el.innerHTML = admins.length
@@ -2351,10 +2295,19 @@ document.getElementById("toggleAdminPassword").onclick = () => {
 };
 document.getElementById("openAddAdminModal").onclick = () => {
   document.getElementById("admError2").textContent = "";
-  document.getElementById("admRole").value = "admin";
+  ["admName", "admEmail2", "admPartyList", "admUsername2", "admPassword2"].forEach((id) => {
+    document.getElementById(id).value = "";
+  });
   addAdminOverlay.classList.add("show");
 };
-document.getElementById("closeAddAdminModal").onclick = () => addAdminOverlay.classList.remove("show");
+function closeAddAdminModal() {
+  addAdminOverlay.classList.remove("show");
+  document.getElementById("admError2").textContent = "";
+}
+document.getElementById("closeAddAdminModal").onclick = closeAddAdminModal;
+addAdminOverlay.addEventListener("click", (event) => {
+  if (event.target === addAdminOverlay) closeAddAdminModal();
+});
 document.getElementById("addAdminBtn").onclick = async () => {
   const errorEl = document.getElementById("admError2");
   errorEl.textContent = "";
@@ -2363,12 +2316,11 @@ document.getElementById("addAdminBtn").onclick = async () => {
   const party_list = document.getElementById("admPartyList").value.trim();
   const username = document.getElementById("admUsername2").value.trim();
   const password = document.getElementById("admPassword2").value;
-  const role = document.getElementById("admRole").value;
   try {
-    await api("/admin/admins", { method: "POST", token: adminToken, body: { name, email, party_list, username, password, role } });
+    await api("/admin/admins", { method: "POST", token: adminToken, body: { name, email, party_list, username, password, role: "staff" } });
     ["admName", "admEmail2", "admPartyList", "admUsername2", "admPassword2"].forEach((id) => { document.getElementById(id).value = ""; });
     renderAdminList();
-    addAdminOverlay.classList.remove("show");
+    closeAddAdminModal();
   } catch (err) {
     errorEl.textContent = err.error || "Couldn't add that admin.";
   }

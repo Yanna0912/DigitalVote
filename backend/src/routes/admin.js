@@ -417,7 +417,15 @@ router.get("/results", asyncHandler(async (req, res) => {
 /* ---------------------------- admin accounts ---------------------------- */
 router.get("/admins", asyncHandler(async (_req, res) => {
   const { data, error } = await supabase.from("admins").select("id, name, email, username, party_list, role, created_at").order("created_at");
-  if (error) return res.status(500).json({ error: "Couldn't load admin accounts." });
+  if (error) {
+    console.error("[admin] Failed to load admin accounts:", error.code, error.message);
+    if (["42P01", "42703", "PGRST204", "PGRST205"].includes(error.code)) {
+      return res.status(503).json({
+        error: "The admin account database is out of date. Apply backend/sql/schema.sql in Supabase, then try again.",
+      });
+    }
+    return res.status(500).json({ error: "Couldn't load admin accounts." });
+  }
   res.json({ admins: data });
 }));
 
@@ -427,9 +435,10 @@ router.post("/admins", asyncHandler(async (req, res) => {
   const party_list = String(req.body.party_list || "").trim();
   const username = String(req.body.username || "").trim();
   const password = String(req.body.password || "");
-  const role = String(req.body.role || "admin").trim().toLowerCase();
+  const requestedRole = String(req.body.role || "staff").trim().toLowerCase();
+  const role = "staff";
   if (!name || !email || !username || !password) return res.status(400).json({ error: "Please fill in every field." });
-  if (!["admin", "staff"].includes(role)) return res.status(400).json({ error: "Choose Admin or Staff for this account." });
+  if (requestedRole !== "staff") return res.status(400).json({ error: "Only Staff accounts can be created here." });
   if (!isGmail(email)) return res.status(400).json({ error: "Please use a Gmail address." });
   if (password.length < 8) return res.status(400).json({ error: "Password should be at least 8 characters." });
 

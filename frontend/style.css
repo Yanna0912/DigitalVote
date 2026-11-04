@@ -476,9 +476,6 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .signin-block .btn-secondary{margin-top:0;}
 .forgot-password-link{text-align:right; margin:-8px 0 12px; font-size:12.5px;}
 .forgot-password-link a{color:var(--blue-light);}
-.admin-signup-link{text-align:center; margin:10px 0 0; font-size:12.5px;}
-.admin-signup-link a{color:var(--blue-light);}
-
 .error-text{
   color:var(--red); font-size:12.5px; margin:-6px 0 12px; min-height:16px;
 }
@@ -641,8 +638,11 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .registration-grid{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:0 12px;}
 .registration-grid .field-dark{min-width:0;}
 .cred-close{
-  position:absolute; top:16px; right:16px;
+  position:absolute; top:16px; right:16px; z-index:2;
+  display:flex; align-items:center; justify-content:center;
+  width:36px; height:36px; background:#172650; color:var(--ink);
 }
+.cred-modal .cred-close:hover{background:#243967; color:#fff;}
 .cred-eyebrow{margin:0 0 4px; font-size:12px; color:var(--muted); font-weight:600;}
 .cred-name{margin-bottom:18px; color:var(--ink); padding-right:24px;}
 .cred-row{
@@ -765,6 +765,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .live-results-header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:22px;}
 .live-results-title{display:flex; align-items:center; gap:11px; min-width:0;}
 .live-results-title h3{font-size:21px; font-weight:800; color:var(--ink);}
+.live-results-election-name{margin:5px 0 0; color:var(--blue-light); font:700 13px 'Sora',sans-serif; overflow-wrap:anywhere;}
 .live-results-meta{font-size:11px; color:var(--muted); margin:5px 0 0;}
 .live-results-indicator{display:inline-flex; align-items:center; gap:6px; color:var(--success); font-size:10px; font-weight:800; letter-spacing:.08em;}
 .live-results-indicator::before{content:''; width:7px; height:7px; border-radius:50%; background:currentColor; box-shadow:0 0 9px currentColor;}
@@ -941,6 +942,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .vd-election-option-copy{display:grid; gap:4px;}
 .vd-election-option-copy strong{font-size:12px;}
 .vd-election-option-copy small{color:var(--muted); font-size:10px;}
+.vd-election-group-title{margin:8px 11px 4px; color:var(--blue-light); font:700 10px 'Inter',sans-serif; letter-spacing:.08em; text-transform:uppercase;}
 .vd-election-check{color:var(--blue-light); font-size:17px;}
 .vd-election-menu-divider{height:1px; margin:6px 4px; background:var(--line-strong);}
 .vd-create-election-row{width:100%; min-height:44px; padding:9px 11px; border:0; border-radius:9px; background:transparent; color:var(--blue-light); text-align:left; font:700 12px 'Inter',sans-serif; cursor:pointer;}
@@ -1015,6 +1017,10 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .vd-pagination>div{display:flex; gap:7px;}
 .vd-pagination .vd-button{min-height:44px; padding:7px 12px; font-size:10px;}
 .vd-security-note{padding:10px 12px; border-left:3px solid var(--blue-light); background:rgba(245,179,1,.06); color:var(--muted); font-size:10px; line-height:1.5;}
+#adminPanelStudents{padding:16px; border:1px solid var(--line); border-radius:16px; background:linear-gradient(180deg,var(--panel-2),var(--panel));}
+#adminPanelStudents .vd-dialog-stat{background:#1b2c56;}
+#adminPanelStudents .students-block-grid .vd-block-card{background:linear-gradient(180deg,#1b2c56,#142248);}
+#adminPanelStudents .students-directory{background:#142248;}
 .students-block-grid{margin-bottom:16px;}
 .students-directory{padding:14px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.025);}
 .students-directory-heading{display:flex; align-items:center; justify-content:space-between; gap:12px;}

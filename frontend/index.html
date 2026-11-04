@@ -170,7 +170,7 @@
         <section class="admin-panel hidden" id="adminPanelAdmins">
           <div class="panel-header-row">
             <h2>Admin &amp; Staff accounts</h2>
-            <button class="btn-gradient btn-small" id="openAddAdminModal">Add account</button>
+            <button class="btn-gradient btn-small" id="openAddAdminModal">Add Staff</button>
           </div>
           <div id="adminList"></div>
         </section>
@@ -270,22 +270,6 @@
   </div>
 </div>
 
-<!-- Admin self-registration -->
-<div class="overlay" id="adminSignupOverlay">
-  <div class="cred-modal cred-modal-lg">
-    <button class="icon-btn cred-close" id="adminSignupClose" type="button" aria-label="Close">&times;</button>
-    <p class="cred-eyebrow">Admin account</p>
-    <h3 class="cred-name">Create an admin account</h3>
-    <div class="field-dark"><label for="adminSignupName">Full name</label><input id="adminSignupName" type="text" autocomplete="name"></div>
-    <div class="field-dark"><label for="adminSignupEmail">Gmail address</label><input id="adminSignupEmail" type="email" autocomplete="email"></div>
-    <div class="field-dark"><label for="adminSignupParty">Party list (optional)</label><input id="adminSignupParty" type="text"></div>
-    <div class="field-dark"><label for="adminSignupUsername">Username</label><input id="adminSignupUsername" type="text" autocomplete="username"></div>
-    <div class="field-dark"><label for="adminSignupPassword">Password</label><input id="adminSignupPassword" type="password" autocomplete="new-password" minlength="8"></div>
-    <p class="error-text" id="adminSignupError" role="alert"></p>
-    <button class="btn-gradient" id="adminSignupSubmit" type="button">Create account</button>
-  </div>
-</div>
-
 <!-- Admin OTP verification -->
 <div class="overlay" id="otpOverlay">
   <div class="cred-modal">
@@ -381,19 +365,14 @@
   </div>
 </div>
 
-<!-- Add Admin or Staff modal -->
+<!-- Add Staff modal -->
 <div class="overlay" id="addAdminOverlay">
   <div class="cred-modal cred-modal-lg">
-    <button class="icon-btn cred-close" id="closeAddAdminModal" aria-label="Close">&times;</button>
+    <button class="icon-btn cred-close" id="closeAddAdminModal" type="button" aria-label="Cancel adding staff">&times;</button>
     <p class="cred-eyebrow">Admin accounts</p>
-    <h3 class="cred-name">Add an account</h3>
+    <h3 class="cred-name">Add a Staff account</h3>
     <div class="field-dark">
-      <label for="admRole">Account type</label>
-      <select id="admRole">
-        <option value="admin">Admin / Election Officer</option>
-        <option value="staff">Staff</option>
-      </select>
-      <p class="panel-note">Staff can manage Students and Candidates and view Live Result and Activity.</p>
+      <p class="panel-note">Staff can manage Students and Candidates and view Live Result and Activity. Admin accounts can only be provisioned by a trusted operator.</p>
     </div>
     <div class="field-dark">
       <label>Full name</label>
@@ -419,7 +398,7 @@
       </div>
     </div>
     <p class="error-text" id="admError2"></p>
-    <button class="btn-gradient" id="addAdminBtn">Add account</button>
+    <button class="btn-gradient" id="addAdminBtn">Add Staff</button>
   </div>
 </div>
 

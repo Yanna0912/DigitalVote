@@ -10,19 +10,20 @@ open/closed switch), and CSV roster import.
 ## 1. Set up Supabase
 
 1. Create a project at [supabase.com](https://supabase.com) (free tier is fine).
-2. Open **SQL Editor → New query**, paste the contents of `sql/schema.sql`,
-   and run it. This creates all tables and locks them down with Row Level
-   Security so only your backend (using the service role key) can touch them.
-   For an existing project, run the updated schema too; it adds a
-   case-insensitive unique index so each student email can be used once.
-   Resolve any duplicate student emails before rerunning if the index creation
-   reports existing duplicates. The schema also adds the separate admin
-  password-reset OTP table, the Admin/Staff account role, and the admin activity log. Admins can view
-  credential delivery, account changes, sign-ins, voting status changes,
-  and ballot-submission timestamps from the Activity tab. The log never
-  stores passwords, OTP values, or vote choices. The latest schema also
-  creates election-scoped tables used by VoteDesk; rerun it before creating
-  elections from the Dashboard.
+2. For a new, empty project, open **SQL Editor → New query**, paste the
+   contents of `sql/schema.sql`, and run it. This creates all tables and
+   locks them down with Row Level Security so only your backend (using the
+   service role key) can touch them. For an existing project, do not blindly
+   rerun the full schema: review its legacy migrations and back up your data
+   first. To add only the election-specific tables, run `sql/elections.sql`;
+   it does not touch legacy tables.
+   The full schema adds a case-insensitive unique index so each student email
+   can be used once. Resolve duplicate student emails before rerunning if
+   index creation reports existing duplicates. It also adds the separate
+   admin password-reset OTP table, Admin/Staff account role, and admin
+   activity log. Admins can view credential delivery, account changes,
+   sign-ins, voting status changes, and ballot-submission timestamps from the
+   Activity tab. The log never stores passwords, OTP values, or vote choices.
 3. Go to **Project Settings → API** and copy:
    - **Project URL** → `SUPABASE_URL`
    - **service_role key** (not the `anon` key — the backend needs to
@@ -119,13 +120,13 @@ roster from CSV** → choose the same kind of file. Same rules apply.
 
 ## 6. Create and manage elections in VoteDesk
 
-After applying the latest `sql/schema.sql`, sign in as an admin and open
-**Dashboard → Create new election**. Upload a CSV with `name,block,email`
-columns (a header row is optional). Each real voter needs a valid, unique
-email address because generated credentials are delivered by email. The
-sample-list option creates a clearly marked sample election and does not send
-email. Candidate names must uniquely match a voter name in that election's
-roster; add a slate after a comma or omit it for Independent.
+After applying `sql/elections.sql` (or the full schema on a new project), sign
+in as an admin and open **Dashboard → Create new election**. Upload a CSV with
+`name,block,email` columns (a header row is optional). Each real voter needs a
+valid, unique email address because generated credentials are delivered by
+email. The sample-list option creates a clearly marked sample election and
+does not send email. Candidate names must uniquely match a voter name in that
+election's roster; add a slate after a comma or omit it for Independent.
 
 Created elections and their voter, candidate, and ballot records are stored in
 the separate `elections`, `election_voters`, `election_candidates`, and
@@ -140,15 +141,10 @@ password cannot be shown again after credential delivery.
 
 ## 7. Create your first admin account
 
-There's no seeded admin account — sign up through the running frontend
-(the "Election officer? Create an admin account" link under the login card), or call the
-API directly:
-```
-curl -X POST http://localhost:4000/api/auth/admin/signup \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Election Officer","email":"you@gmail.com","username":"ssg.officer","password":"choose-a-strong-one"}'
-```
-(Must be a `@gmail.com` address — that's what the OTP gets sent to.)
+The initial admin account must be provisioned by a trusted deployment
+operator. After logging in, Admins can add further Admin or Staff accounts
+from **Admin → Admin & Staff accounts → Add account**. Admin accounts must use
+a `@gmail.com` address so login verification codes can be delivered.
 
 Admin/Election Officer accounts keep full access. From **Admin → Admin &
 Staff accounts**, an Admin can create a Staff account. Staff can view Live
@@ -156,6 +152,22 @@ Result, Students, Candidates, and Activity, and can manage Students and
 Candidates where the election workflow allows it. Staff cannot manage
 accounts, elections, QR codes, or voting status. Rerun `sql/schema.sql` on an
 existing database to add the `role` column before using Staff accounts.
+
+Elections created in VoteDesk store each election, its voter list, candidates,
+and ballots in separate election-scoped database tables. Live Result, Students,
+and Candidates use the election selected in the Dashboard. Closing voting
+automatically marks that election Archived; archived elections remain saved
+and are grouped in the Dashboard election picker.
+
+If VoteDesk shows **Couldn't load elections**, apply the latest
+`backend/sql/elections.sql` to the Supabase project used by the deployed
+backend. This creates or updates only the election tables and indexes. If you
+ran only part of `schema.sql`, do not run its unrelated legacy RLS statements;
+in particular, `admin_password_reset_codes` is created earlier in the full
+schema and is not required for election storage.
+
+If Admin → Admin & Staff accounts reports that the admin account database is
+out of date, apply the same schema to add any missing account columns.
 
 ## 8. Deploy to Render
 
@@ -184,7 +196,6 @@ Blueprints (New → Blueprint → point at this repo).
 | POST | `/api/auth/student/register` | — | Verify ID and name against the roster; email credentials |
 | POST | `/api/auth/student/resend` | — | Re-send a fresh password to a matching ID + email |
 | POST | `/api/auth/login` | — | Unified login; admins get an OTP step, students get a session |
-| POST | `/api/auth/admin/signup` | — | Create a new admin account |
 | POST | `/api/auth/admin/verify-otp` | — | Finish admin login with the emailed code |
 | GET | `/api/me` | student | Current student status + whether voting is open |
 | GET | `/api/ballot` | student | Candidates grouped by position; representative candidates are limited to the student's course |
