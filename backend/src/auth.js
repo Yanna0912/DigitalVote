@@ -4,11 +4,39 @@ function secret() {
   return process.env.JWT_SECRET || "dev-secret-change-me";
 }
 
-function signStudentToken(student) {
-  return jwt.sign({ role: "student", id_no: student.id_no }, secret(), { expiresIn: "3h" });
+function signStudentToken(student, election = null) {
+  const payload = { role: "student", id_no: student.id_no };
+  if (election) {
+    payload.election_id = election.id;
+    payload.voter_id = student.id;
+  }
+  return jwt.sign(payload, secret(), { expiresIn: "3h" });
 }
 function signAdminToken(admin) {
-  return jwt.sign({ role: "admin", id: admin.id, username: admin.username }, secret(), { expiresIn: "6h" });
+  return jwt.sign({ role: admin.role || "admin", id: admin.id, username: admin.username }, secret(), { expiresIn: "6h" });
+}
+
+function staffCanAccess(req) {
+  const path = req.originalUrl.split("?")[0].replace(/\/+$/, "") || "/";
+  const staffGetRoutes = new Set([
+    "/api/admin/me",
+    "/api/admin/activity",
+    "/api/admin/stats",
+    "/api/admin/students",
+    "/api/admin/candidates",
+    "/api/admin/results",
+    "/api/admin/elections",
+  ]);
+  if (req.method === "GET" && staffGetRoutes.has(path)) return true;
+  if (req.method === "GET" && /^\/api\/admin\/elections\/[^/]+$/.test(path)) return true;
+  if (req.method === "POST" && [
+    "/api/admin/students",
+    "/api/admin/students/import",
+    "/api/admin/candidates",
+  ].includes(path)) return true;
+  if (req.method === "POST" && /^\/api\/admin\/students\/[^/]+\/resend-credentials$/.test(path)) return true;
+  if (req.method === "POST" && /^\/api\/admin\/elections\/[^/]+\/voters\/[^/]+\/resend-credentials$/.test(path)) return true;
+  return false;
 }
 
 function requireAuth(role) {
@@ -18,7 +46,12 @@ function requireAuth(role) {
     if (!token) return res.status(401).json({ error: "Missing or invalid authorization header." });
     try {
       const payload = jwt.verify(token, secret());
-      if (payload.role !== role) return res.status(403).json({ error: "You don't have access to this." });
+      const allowed = payload.role === role || (
+        role === "admin" &&
+        payload.role === "staff" &&
+        staffCanAccess(req)
+      );
+      if (!allowed) return res.status(403).json({ error: "You don't have access to this." });
       req.auth = payload;
       next();
     } catch (_err) {

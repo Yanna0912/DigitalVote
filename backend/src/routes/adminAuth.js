@@ -31,7 +31,8 @@ router.post("/signup", asyncHandler(async (req, res) => {
     return res.status(400).json({ error: "Password should be at least 8 characters." });
   }
 
-  const { data: existing } = await supabase.from("admins").select("id").ilike("username", username).maybeSingle();
+  const { data: existing, error: lookupError } = await supabase.from("admins").select("id").ilike("username", username).maybeSingle();
+  if (lookupError) return res.status(500).json({ error: "Couldn't check the admin account details." });
   if (existing) return res.status(409).json({ error: "That username is already taken." });
 
   const password_hash = await bcrypt.hash(password, 10);
@@ -39,6 +40,7 @@ router.post("/signup", asyncHandler(async (req, res) => {
     .insert({ name, email, party_list: party_list || null, username, password_hash })
     .select("id")
     .single();
+  if (error?.code === "23505") return res.status(409).json({ error: "That username or email is already in use." });
   if (error) return res.status(500).json({ error: "Couldn't create the admin account. Please try again." });
 
   await logActivity(req, {
@@ -88,7 +90,7 @@ router.post("/verify-otp", asyncHandler(async (req, res) => {
     targetType: "admin",
     targetId: admin.id,
   });
-  return res.json({ token, admin: { id: admin.id, name: admin.name, email: admin.email, username: admin.username, party_list: admin.party_list } });
+  return res.json({ token, admin: { id: admin.id, name: admin.name, email: admin.email, username: admin.username, party_list: admin.party_list, role: admin.role || "admin" } });
 
   
 }));

@@ -17,10 +17,12 @@ open/closed switch), and CSV roster import.
    case-insensitive unique index so each student email can be used once.
    Resolve any duplicate student emails before rerunning if the index creation
    reports existing duplicates. The schema also adds the separate admin
-  password-reset OTP table and the admin activity log. Admins can view
+  password-reset OTP table, the Admin/Staff account role, and the admin activity log. Admins can view
   credential delivery, account changes, sign-ins, voting status changes,
   and ballot-submission timestamps from the Activity tab. The log never
-  stores passwords, OTP values, or vote choices.
+  stores passwords, OTP values, or vote choices. The latest schema also
+  creates election-scoped tables used by VoteDesk; rerun it before creating
+  elections from the Dashboard.
 3. Go to **Project Settings → API** and copy:
    - **Project URL** → `SUPABASE_URL`
    - **service_role key** (not the `anon` key — the backend needs to
@@ -115,10 +117,31 @@ are inserted.
 **B. Admin dashboard:** log in as an admin → **Students** tab → **Import
 roster from CSV** → choose the same kind of file. Same rules apply.
 
-## 6. Create your first admin account
+## 6. Create and manage elections in VoteDesk
+
+After applying the latest `sql/schema.sql`, sign in as an admin and open
+**Dashboard → Create new election**. Upload a CSV with `name,block,email`
+columns (a header row is optional). Each real voter needs a valid, unique
+email address because generated credentials are delivered by email. The
+sample-list option creates a clearly marked sample election and does not send
+email. Candidate names must uniquely match a voter name in that election's
+roster; add a slate after a comma or omit it for Independent.
+
+Created elections and their voter, candidate, and ballot records are stored in
+the separate `elections`, `election_voters`, `election_candidates`, and
+`election_votes` tables. The Dashboard year selector loads those saved records;
+the existing Students, Candidates, and Live Result views use the selected
+election without changing the legacy roster or results. The Dashboard can open
+or close voting, certify results, and archive certified elections.
+
+For sample elections, voter data is demonstration-only. Passwords are never
+returned by the API; only bcrypt hashes are stored, so a real participant
+password cannot be shown again after credential delivery.
+
+## 7. Create your first admin account
 
 There's no seeded admin account — sign up through the running frontend
-(the "Sign up for admin access" link under the login card), or call the
+(the "Election officer? Create an admin account" link under the login card), or call the
 API directly:
 ```
 curl -X POST http://localhost:4000/api/auth/admin/signup \
@@ -127,7 +150,14 @@ curl -X POST http://localhost:4000/api/auth/admin/signup \
 ```
 (Must be a `@gmail.com` address — that's what the OTP gets sent to.)
 
-## 7. Deploy to Render
+Admin/Election Officer accounts keep full access. From **Admin → Admin &
+Staff accounts**, an Admin can create a Staff account. Staff can view Live
+Result, Students, Candidates, and Activity, and can manage Students and
+Candidates where the election workflow allows it. Staff cannot manage
+accounts, elections, QR codes, or voting status. Rerun `sql/schema.sql` on an
+existing database to add the `role` column before using Staff accounts.
+
+## 8. Deploy to Render
 
 1. Push this repo to GitHub.
 2. Render dashboard → **New → Web Service** → connect the repo.
@@ -159,13 +189,19 @@ Blueprints (New → Blueprint → point at this repo).
 | GET | `/api/me` | student | Current student status + whether voting is open |
 | GET | `/api/ballot` | student | Candidates grouped by position; representative candidates are limited to the student's course |
 | POST | `/api/vote` | student | Cast a vote; candidate eligibility is validated against the student's block |
-| GET/POST/DELETE | `/api/admin/students` | admin | Roster CRUD |
-| POST | `/api/admin/students/import` | admin | CSV bulk import |
-| GET/POST/DELETE | `/api/admin/candidates` | admin | Candidate CRUD |
-| GET | `/api/admin/results` | admin | Vote tally per position |
+| GET/POST/DELETE | `/api/admin/students` | admin; staff (scoped) | Roster access |
+| POST | `/api/admin/students/import` | admin; staff | CSV bulk import |
+| GET/POST/DELETE | `/api/admin/candidates` | admin; staff (scoped) | Candidate access |
+| GET | `/api/admin/results` | admin; staff | Vote tally per position |
+| GET | `/api/admin/activity` | admin; staff | Activity log |
 | GET/POST | `/api/admin/settings/voting-open` | admin | Read/flip the election on-off switch |
-| GET/POST/DELETE | `/api/admin/admins` | admin | Manage other admin accounts |
-| GET | `/api/admin/stats` | admin | Dashboard summary numbers |
+| GET/POST/DELETE | `/api/admin/admins` | admin | Manage Admin and Staff accounts |
+| GET | `/api/admin/stats` | admin; staff | Dashboard summary numbers |
+| GET/POST | `/api/admin/elections` | admin; staff (GET only) | List saved elections / create a voter- and candidate-scoped election |
+| GET | `/api/admin/elections/:id` | admin; staff | Load election, participants, candidates, and block totals |
+| POST | `/api/admin/elections/:id/voting-open` | admin | Open or close voting for one election |
+| POST | `/api/admin/elections/:id/status` | admin | Certify or archive an election |
+| POST | `/api/admin/elections/:id/voters/:voterId/resend-credentials` | admin | Issue and email a replacement password for an active election voter |
 
 "student"/"admin" auth means a `Authorization: Bearer <token>` header
 with the JWT returned at login.

@@ -476,6 +476,8 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .signin-block .btn-secondary{margin-top:0;}
 .forgot-password-link{text-align:right; margin:-8px 0 12px; font-size:12.5px;}
 .forgot-password-link a{color:var(--blue-light);}
+.admin-signup-link{text-align:center; margin:10px 0 0; font-size:12.5px;}
+.admin-signup-link a{color:var(--blue-light);}
 
 .error-text{
   color:var(--red); font-size:12.5px; margin:-6px 0 12px; min-height:16px;
@@ -910,12 +912,16 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 /* ---------- VoteDesk sample election dashboard ---------- */
 #adminPanelVotedesk{max-width:1280px; margin:0 auto;}
 .vd-page-header{display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin:4px 0 20px;}
+.vd-election-management{display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px;}
+.vd-loading-state{padding:24px; color:var(--muted); text-align:center;}
+.vd-load-error{margin:8px; padding:9px 10px; border-radius:8px; background:rgba(255,92,108,.1); color:#ffb1b8; font-size:11px; line-height:1.45;}
 .vd-page-title h1{font-family:'Sora',sans-serif; font-size:clamp(23px,3vw,32px); line-height:1.2; margin:7px 0 11px; color:var(--ink);}
 .vd-eyebrow{display:flex; align-items:center; gap:9px; color:var(--blue-light); font-size:11px; font-weight:800; letter-spacing:.09em; text-transform:uppercase;}
 .vd-sample-chip{display:inline-flex; align-items:center; min-height:22px; padding:2px 8px; border:1px solid rgba(255,214,90,.32); border-radius:999px; background:rgba(245,179,1,.1); color:#ffe28a; font-size:9px; letter-spacing:.07em;}
 .vd-meta{display:flex; align-items:center; flex-wrap:wrap; gap:9px 14px; color:var(--muted); font-size:12px;}
 .vd-status{display:inline-flex; align-items:center; justify-content:center; width:max-content; max-width:100%; min-height:24px; padding:3px 9px; border-radius:999px; font-size:10px; font-weight:800; white-space:nowrap; background:rgba(255,255,255,.09); color:var(--muted);}
 .vd-status-certified,.vd-status-winner,.vd-status-voted,.vd-status-won{background:rgba(34,199,126,.14); color:#59dfa4;}
+.vd-status-open{background:rgba(34,199,126,.14); color:#59dfa4;}
 .vd-status-archived,.vd-status-lost{background:rgba(159,176,214,.14); color:#b9c7e5;}
 .vd-status-upcoming,.vd-status-pending,.vd-status-not-voted{background:rgba(245,179,1,.13); color:#ffda69;}
 .vd-status-no-credentials{background:rgba(255,92,108,.14); color:#ff9da7;}
@@ -1009,6 +1015,18 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .vd-pagination>div{display:flex; gap:7px;}
 .vd-pagination .vd-button{min-height:44px; padding:7px 12px; font-size:10px;}
 .vd-security-note{padding:10px 12px; border-left:3px solid var(--blue-light); background:rgba(245,179,1,.06); color:var(--muted); font-size:10px; line-height:1.5;}
+.students-block-grid{margin-bottom:16px;}
+.students-directory{padding:14px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.025);}
+.students-directory-heading{display:flex; align-items:center; justify-content:space-between; gap:12px;}
+.students-directory-heading h3{color:var(--ink); font:700 15px 'Sora',sans-serif;}
+.students-directory-heading .vd-dialog-subtitle{margin:5px 0 0;}
+.students-toolbar{margin-bottom:10px;}
+.vd-student-search{width:min(100%,440px); min-height:44px; padding:9px 12px; border:1px solid var(--line-strong); border-radius:10px; outline:none; background:rgba(14,27,61,.88); color:var(--ink); font:12px 'Inter',sans-serif;}
+.vd-student-search::placeholder{color:var(--muted);}
+.vd-student-search:focus{border-color:var(--blue-light);}
+.students-table{min-width:880px;}
+.vd-resend-button{min-height:32px; padding:5px 9px; font-size:10px;}
+.vd-resend-button:disabled{opacity:.55; cursor:wait;}
 .vd-candidate-section{margin-top:17px;}
 .vd-candidate-section>header{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:9px;}
 .vd-candidate-section>header h3,.vd-breakdown h3{color:var(--ink); font:700 15px 'Sora',sans-serif;}
@@ -1145,6 +1163,8 @@ button:focus-visible,.vd-block-card:focus-visible{outline:3px solid var(--blue-l
   .status-card{text-align:center; width:100%;}
   .metric-card-grid{grid-template-columns:1fr;}
   #adminPanelVotedesk{padding:0 1px;}
+  .vd-page-header{flex-direction:column;}
+  .vd-election-management{justify-content:flex-start;}
   .vd-toolbar{display:grid; grid-template-columns:1fr 1fr;}
   .vd-toolbar>.vd-election-picker,.vd-election-picker>.vd-button{width:100%;}
   .vd-toolbar>.vd-button{width:100%; padding:7px 10px; font-size:10px;}

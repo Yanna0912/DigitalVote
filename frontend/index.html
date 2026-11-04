@@ -113,15 +113,40 @@
         <section class="admin-panel hidden" id="adminPanelStudents">
           <div class="panel-header-row">
             <h2>Students</h2>
-            <button class="btn-gradient btn-small" id="openAddStudentModal">Add Students</button></div>
-          <div class="block-grid" id="blockGrid"></div>
-          <details class="roster-details">
-            <summary>Full roster <span id="rosterFilterLabel"></span> (<span id="rosterCount">0</span>)</summary>
-            <table class="dark-table" id="rosterTable">
-              <thead><tr><th>Student ID</th><th>Name</th><th>Block</th><th>Email</th><th>Credentials</th><th>Voted</th></tr></thead>
-              <tbody></tbody>
-            </table>
-          </details>
+            <button class="btn-gradient btn-small" id="openAddStudentModal">Add Students</button>
+          </div>
+          <div class="vd-dialog-stats" id="studentSummary"></div>
+          <div id="studentLoadError" class="vd-alert hidden" role="alert"></div>
+          <div class="vd-block-grid students-block-grid" id="blockGrid"></div>
+          <section class="students-directory hidden" id="studentDirectory">
+            <header class="vd-candidate-section">
+              <div class="students-directory-heading">
+                <div>
+                  <h3 id="studentListTitle">Students</h3>
+                  <p class="vd-dialog-subtitle" id="studentListSubtitle"></p>
+                </div>
+                <button class="vd-button" id="studentBackToBlocks" type="button">&#8592; All blocks</button>
+              </div>
+            </header>
+            <div class="vd-dialog-toolbar students-toolbar">
+              <input class="vd-student-search" id="studentSearch" type="search" placeholder="Search name, ID, block, email, or username" aria-label="Search students">
+            </div>
+            <div class="vd-filter-row" id="studentStatusFilters"></div>
+            <div class="vd-table-wrap">
+              <table class="vd-table students-table" id="rosterTable">
+                <thead><tr><th>Student ID</th><th>Student</th><th>Block</th><th>Email</th><th>Username</th><th>Credentials</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div class="vd-pagination">
+              <span id="rosterPageSummary"></span>
+              <div>
+                <button class="vd-button" id="studentPreviousPage" type="button">Previous</button>
+                <button class="vd-button" id="studentNextPage" type="button">Next</button>
+              </div>
+            </div>
+            <p class="vd-security-note">Passwords are never displayed. Credentials are sent to students by email.</p>
+          </section>
         </section>
 
         <section class="admin-panel hidden" id="adminPanelCandidates">
@@ -144,8 +169,8 @@
 
         <section class="admin-panel hidden" id="adminPanelAdmins">
           <div class="panel-header-row">
-            <h2>Admin accounts</h2>
-            <button class="btn-gradient btn-small" id="openAddAdminModal">Add Admin</button>
+            <h2>Admin &amp; Staff accounts</h2>
+            <button class="btn-gradient btn-small" id="openAddAdminModal">Add account</button>
           </div>
           <div id="adminList"></div>
         </section>
@@ -245,6 +270,22 @@
   </div>
 </div>
 
+<!-- Admin self-registration -->
+<div class="overlay" id="adminSignupOverlay">
+  <div class="cred-modal cred-modal-lg">
+    <button class="icon-btn cred-close" id="adminSignupClose" type="button" aria-label="Close">&times;</button>
+    <p class="cred-eyebrow">Admin account</p>
+    <h3 class="cred-name">Create an admin account</h3>
+    <div class="field-dark"><label for="adminSignupName">Full name</label><input id="adminSignupName" type="text" autocomplete="name"></div>
+    <div class="field-dark"><label for="adminSignupEmail">Gmail address</label><input id="adminSignupEmail" type="email" autocomplete="email"></div>
+    <div class="field-dark"><label for="adminSignupParty">Party list (optional)</label><input id="adminSignupParty" type="text"></div>
+    <div class="field-dark"><label for="adminSignupUsername">Username</label><input id="adminSignupUsername" type="text" autocomplete="username"></div>
+    <div class="field-dark"><label for="adminSignupPassword">Password</label><input id="adminSignupPassword" type="password" autocomplete="new-password" minlength="8"></div>
+    <p class="error-text" id="adminSignupError" role="alert"></p>
+    <button class="btn-gradient" id="adminSignupSubmit" type="button">Create account</button>
+  </div>
+</div>
+
 <!-- Admin OTP verification -->
 <div class="overlay" id="otpOverlay">
   <div class="cred-modal">
@@ -340,12 +381,20 @@
   </div>
 </div>
 
-<!-- Add Admin modal -->
+<!-- Add Admin or Staff modal -->
 <div class="overlay" id="addAdminOverlay">
   <div class="cred-modal cred-modal-lg">
     <button class="icon-btn cred-close" id="closeAddAdminModal" aria-label="Close">&times;</button>
     <p class="cred-eyebrow">Admin accounts</p>
-    <h3 class="cred-name">Add an admin</h3>
+    <h3 class="cred-name">Add an account</h3>
+    <div class="field-dark">
+      <label for="admRole">Account type</label>
+      <select id="admRole">
+        <option value="admin">Admin / Election Officer</option>
+        <option value="staff">Staff</option>
+      </select>
+      <p class="panel-note">Staff can manage Students and Candidates and view Live Result and Activity.</p>
+    </div>
     <div class="field-dark">
       <label>Full name</label>
       <input type="text" id="admName" placeholder="Full name">
@@ -370,7 +419,7 @@
       </div>
     </div>
     <p class="error-text" id="admError2"></p>
-    <button class="btn-gradient" id="addAdminBtn">Add admin</button>
+    <button class="btn-gradient" id="addAdminBtn">Add account</button>
   </div>
 </div>
 

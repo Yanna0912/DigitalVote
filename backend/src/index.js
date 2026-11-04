@@ -7,6 +7,7 @@ const adminAuthRoutes = require("./routes/adminAuth");
 const unifiedAuthRoutes = require("./routes/authUnified");
 const ballotRoutes = require("./routes/ballot");
 const adminRoutes = require("./routes/admin");
+const electionRoutes = require("./routes/elections");
 
 const app = express();
 app.use(express.json({ limit: "6mb" }));
@@ -24,6 +25,7 @@ app.use("/api/auth/admin", adminAuthRoutes);
 app.use("/api/auth", unifiedAuthRoutes); // /api/auth/login
 app.use("/api", ballotRoutes); // /api/me, /api/ballot, /api/vote
 app.use("/api/admin", adminRoutes);
+app.use("/api/admin/elections", electionRoutes);
 
 // centralized error fallback for anything that throws instead of
 // returning its own response

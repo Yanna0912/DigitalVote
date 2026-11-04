@@ -88,6 +88,47 @@ router.post("/login", asyncHandler(async (req, res) => {
     });
   }
 
+  const { data: electionVoter, error: electionVoterError } = await supabase
+    .from("election_voters")
+    .select("id, election_id, voter_id, name, block, username, password_hash, voted, voted_at")
+    .ilike("username", username)
+    .maybeSingle();
+  if (electionVoterError) return res.status(500).json({ error: "Database error during login." });
+  if (electionVoter && electionVoter.password_hash && (await bcrypt.compare(password, electionVoter.password_hash))) {
+    const { data: election, error: electionError } = await supabase
+      .from("elections")
+      .select("id, name, year, status, voting_open")
+      .eq("id", electionVoter.election_id)
+      .maybeSingle();
+    if (electionError) return res.status(500).json({ error: "Database error during login." });
+    if (!election || election.status === "Archived" || election.status === "Certified") {
+      return res.status(403).json({ error: "This election is no longer accepting voter sign-ins." });
+    }
+
+    const token = signStudentToken({ id_no: electionVoter.voter_id, id: electionVoter.id }, election);
+    await logActivity(req, {
+      actor: { role: "student", id_no: electionVoter.voter_id, name: electionVoter.name },
+      action: "student.login_succeeded",
+      summary: `${electionVoter.name} signed in for the ${election.year} election.`,
+      targetType: "election_voter",
+      targetId: electionVoter.id,
+      details: { electionId: election.id, year: election.year },
+    });
+    return res.json({
+      role: "student",
+      token,
+      student: {
+        id_no: electionVoter.voter_id,
+        name: electionVoter.name,
+        block: electionVoter.block,
+        voted: electionVoter.voted,
+        voted_at: electionVoter.voted_at,
+      },
+      votingOpen: election.voting_open,
+      election: { id: election.id, name: election.name, year: election.year },
+    });
+  }
+
   return res.status(401).json({ error: "Incorrect username or password." });
 }));
 

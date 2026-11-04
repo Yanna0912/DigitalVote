@@ -11,14 +11,15 @@ render.yaml  one-click backend deploy blueprint for Render
 
 ## How the pieces fit together
 
-- **Supabase** is the database: students, admins, candidates, votes, and
-  the global voting on/off switch.
+- **Supabase** is the database: students, admins, candidates, votes,
+  saved elections, and voting status.
 - **Backend** (`backend/`) is the only thing allowed to talk to Supabase
   directly (using the service role key). It handles registration, login,
   OTP email for admins, voting, and every admin action.
 - **Frontend** (`frontend/`) is a static site that only talks to the
-  backend's API — no database credentials, no localStorage data, nothing
-  sensitive lives in the browser.
+  backend's API. Database credentials and passwords stay server-side;
+  short-lived auth tokens and the selected dashboard election use
+  `sessionStorage`.
 
 ## Quick start (local)
 
@@ -41,11 +42,16 @@ render.yaml  one-click backend deploy blueprint for Render
    cd frontend
    npx serve .
    ```
-   `config.js` already points at `http://localhost:4000/api` by default.
-5. Open the frontend, create your first admin account, and log in (the
-   admin OTP is emailed). Open **Election status → Voting OPEN**, then
-   register a student with the matching name, ID, and block from the sample
-   roster.
+   `config.js` uses `http://localhost:4000/api` on localhost and the
+   configured Render API on deployed hosts.
+5. Open the frontend, use **Election officer? Create an admin account**, then
+   log in (the admin OTP is emailed). For the legacy roster flow, import the
+   sample roster, add candidates, open voting from **Live Result**, and
+   register a matching student. For a separate saved election, use
+   **Dashboard → Create new election** to upload its voters and candidates,
+   then open voting from that election dashboard.
+   Admins can create restricted Staff accounts from **Admin → Admin & Staff
+   accounts**; Staff can access Live Result, Students, Candidates, and Activity.
 
 Full details, including SMTP setup and every environment variable, are in
 `backend/README.md`. Frontend-specific notes are in `frontend/README.md`.

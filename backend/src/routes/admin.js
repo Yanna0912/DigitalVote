@@ -14,10 +14,28 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 *
 
 router.use(requireAdmin);
 
+async function electionIdFromRequest(req, res) {
+  const electionId = String(req.query.electionId || "").trim();
+  if (!electionId) return null;
+  const { data: election, error } = await supabase.from("elections")
+    .select("id, name, year, status, voting_open, election_date")
+    .eq("id", electionId)
+    .maybeSingle();
+  if (error) {
+    res.status(500).json({ error: "Couldn't load the selected election." });
+    return undefined;
+  }
+  if (!election) {
+    res.status(404).json({ error: "Selected election not found." });
+    return undefined;
+  }
+  return election;
+}
+
 router.get("/me", asyncHandler(async (req, res) => {
   const { data: admin, error } = await supabase
     .from("admins")
-    .select("id, name, email, username")
+    .select("id, name, email, username, role")
     .eq("id", req.auth.id)
     .maybeSingle();
   if (error || !admin) return res.status(404).json({ error: "Admin account not found." });
@@ -40,7 +58,29 @@ router.get("/activity", asyncHandler(async (req, res) => {
 }));
 
 /* ---------------------------- dashboard stats ---------------------------- */
-router.get("/stats", asyncHandler(async (_req, res) => {
+router.get("/stats", asyncHandler(async (req, res) => {
+  const election = await electionIdFromRequest(req, res);
+  if (election === undefined) return;
+  if (election) {
+    const [
+      { count: total, error: voterError },
+      { count: voted, error: votedError },
+      { count: credentialsGenerated, error: credentialError },
+    ] = await Promise.all([
+      supabase.from("election_voters").select("*", { count: "exact", head: true }).eq("election_id", election.id),
+      supabase.from("election_voters").select("*", { count: "exact", head: true }).eq("election_id", election.id).eq("voted", true),
+      supabase.from("election_voters").select("*", { count: "exact", head: true }).eq("election_id", election.id).eq("credential_delivery", "sent"),
+    ]);
+    if (voterError || votedError || credentialError) return res.status(500).json({ error: "Couldn't load election stats." });
+    return res.json({
+      total: total || 0,
+      registeredNotVoted: Math.max(0, (total || 0) - (voted || 0)),
+      credentialsGenerated: credentialsGenerated || 0,
+      voted: voted || 0,
+      votingOpen: election.voting_open,
+    });
+  }
+
   const { count: total } = await supabase.from("students").select("*", { count: "exact", head: true });
   const { count: registeredNotVoted } = await supabase
     .from("students").select("*", { count: "exact", head: true }).eq("registered", true).eq("voted", false);
@@ -74,10 +114,34 @@ router.post("/settings/voting-open", asyncHandler(async (req, res) => {
 }));
 
 /* ---------------------------- students / roster ---------------------------- */
-router.get("/students", asyncHandler(async (_req, res) => {
+router.get("/students", asyncHandler(async (req, res) => {
+  const election = await electionIdFromRequest(req, res);
+  if (election === undefined) return;
+  if (election) {
+    const { data, error } = await supabase.from("election_voters")
+      .select("voter_id, name, block, email, username, credential_delivery, voted, voted_at, created_at")
+      .eq("election_id", election.id)
+      .order("name", { ascending: true });
+    if (error) return res.status(500).json({ error: "Couldn't load the election voter list." });
+    return res.json({
+      students: (data || []).map((voter) => ({
+        id_no: voter.voter_id,
+        name: voter.name,
+        block: voter.block,
+        email: voter.email,
+        username: voter.username,
+        registered: true,
+        voted: voter.voted,
+        voted_at: voter.voted_at,
+        created_at: voter.created_at,
+        credentials_delivery: voter.credential_delivery,
+      })),
+    });
+  }
+
   const { data, error } = await supabase
     .from("students")
-    .select("id_no, first_name, last_name, suffix, block, email, registered, registered_at, voted, voted_at, created_at")
+    .select("id_no, first_name, last_name, suffix, block, email, username, registered, registered_at, voted, voted_at, created_at")
     .order("created_at", { ascending: true });
   if (error) return res.status(500).json({ error: "Couldn't load the roster." });
   res.json({ students: data.map((student) => ({ ...student, name: studentDisplayName(student) })) });
@@ -196,7 +260,42 @@ router.delete("/students/:id_no", asyncHandler(async (req, res) => {
 }));
 
 /* ---------------------------- candidates ---------------------------- */
-router.get("/candidates", asyncHandler(async (_req, res) => {
+router.get("/candidates", asyncHandler(async (req, res) => {
+  const election = await electionIdFromRequest(req, res);
+  if (election === undefined) return;
+  if (election) {
+    const { data: candidates, error } = await supabase.from("election_candidates")
+      .select("id, voter_id, position, name, block, slate, ballot_number")
+      .eq("election_id", election.id)
+      .order("position", { ascending: true })
+      .order("ballot_number", { ascending: true });
+    if (error) return res.status(500).json({ error: "Couldn't load election candidates." });
+    const [{ data: votes, error: voteError }, { data: voters, error: voterError }] = await Promise.all([
+      supabase.from("election_votes")
+        .select("candidate_id, position")
+        .eq("election_id", election.id),
+      supabase.from("election_voters")
+        .select("id, voter_id")
+        .eq("election_id", election.id),
+    ]);
+    if (voteError || voterError) return res.status(500).json({ error: "Couldn't load election candidate totals." });
+    const voterIdsByRowId = new Map((voters || []).map((voter) => [voter.id, voter.voter_id]));
+    return res.json({
+      candidates: (candidates || []).map((candidate) => ({
+        id: candidate.id,
+        id_no: voterIdsByRowId.get(candidate.voter_id) || null,
+        name: candidate.name,
+        position: candidate.position,
+        race_position: candidateRacePosition(candidate),
+        block: candidate.block,
+        party: candidate.slate,
+        photo: null,
+        ballot_number: candidate.ballot_number,
+        result: { votes: (votes || []).filter((vote) => vote.candidate_id === candidate.id).length },
+      })),
+    });
+  }
+
   const { data, error } = await supabase.from("candidates").select("*").order("position", { ascending: true });
   if (error) return res.status(500).json({ error: "Couldn't load candidates." });
   res.json({ candidates: data.map((candidate) => ({
@@ -250,7 +349,40 @@ router.delete("/candidates/:id", asyncHandler(async (req, res) => {
 }));
 
 /* ---------------------------- results ---------------------------- */
-router.get("/results", asyncHandler(async (_req, res) => {
+router.get("/results", asyncHandler(async (req, res) => {
+  const election = await electionIdFromRequest(req, res);
+  if (election === undefined) return;
+  if (election) {
+    const [{ data: candidates, error: candidateError }, { data: votes, error: voteError }] = await Promise.all([
+      supabase.from("election_candidates")
+        .select("id, position, name, block, slate, ballot_number")
+        .eq("election_id", election.id)
+        .order("position", { ascending: true })
+        .order("ballot_number", { ascending: true }),
+      supabase.from("election_votes").select("candidate_id, position").eq("election_id", election.id),
+    ]);
+    if (candidateError || voteError) return res.status(500).json({ error: "Couldn't load election results." });
+    const byPosition = {};
+    for (const candidate of candidates || []) {
+      const position = candidateRacePosition(candidate);
+      if (!position) continue;
+      if (!byPosition[position]) byPosition[position] = [];
+      byPosition[position].push({
+        id: candidate.id,
+        id_no: null,
+        name: candidate.name,
+        position,
+        race_position: position,
+        block: candidate.block,
+        party: candidate.slate,
+        photo: null,
+        ballot_number: candidate.ballot_number,
+        votes: (votes || []).filter((vote) => vote.candidate_id === candidate.id).length,
+      });
+    }
+    return res.json({ results: Object.entries(byPosition).map(([position, list]) => ({ position, candidates: list })) });
+  }
+
   const { data: candidates, error: candError } = await supabase.from("candidates").select("*");
   if (candError) return res.status(500).json({ error: "Couldn't load candidates." });
 
@@ -284,7 +416,7 @@ router.get("/results", asyncHandler(async (_req, res) => {
 
 /* ---------------------------- admin accounts ---------------------------- */
 router.get("/admins", asyncHandler(async (_req, res) => {
-  const { data, error } = await supabase.from("admins").select("id, name, email, username, party_list, created_at").order("created_at");
+  const { data, error } = await supabase.from("admins").select("id, name, email, username, party_list, role, created_at").order("created_at");
   if (error) return res.status(500).json({ error: "Couldn't load admin accounts." });
   res.json({ admins: data });
 }));
@@ -295,25 +427,29 @@ router.post("/admins", asyncHandler(async (req, res) => {
   const party_list = String(req.body.party_list || "").trim();
   const username = String(req.body.username || "").trim();
   const password = String(req.body.password || "");
+  const role = String(req.body.role || "admin").trim().toLowerCase();
   if (!name || !email || !username || !password) return res.status(400).json({ error: "Please fill in every field." });
+  if (!["admin", "staff"].includes(role)) return res.status(400).json({ error: "Choose Admin or Staff for this account." });
   if (!isGmail(email)) return res.status(400).json({ error: "Please use a Gmail address." });
   if (password.length < 8) return res.status(400).json({ error: "Password should be at least 8 characters." });
 
-  const { data: existing } = await supabase.from("admins").select("id").ilike("username", username).maybeSingle();
+  const { data: existing, error: lookupError } = await supabase.from("admins").select("id").ilike("username", username).maybeSingle();
+  if (lookupError) return res.status(500).json({ error: "Couldn't check the account details." });
   if (existing) return res.status(409).json({ error: "That username is already taken." });
 
   const password_hash = await bcrypt.hash(password, 10);
   const { data: createdAdmin, error } = await supabase.from("admins")
-    .insert({ name, email, party_list: party_list || null, username, password_hash })
+    .insert({ name, email, party_list: party_list || null, username, password_hash, role })
     .select("id")
     .single();
+  if (error?.code === "23505") return res.status(409).json({ error: "That username or email is already in use." });
   if (error) return res.status(500).json({ error: "Couldn't add that admin." });
   await logActivity(req, {
     action: "admin.account_added",
-    summary: `Added admin account for ${name}.`,
-    targetType: "admin",
+    summary: `Added ${role} account for ${name}.`,
+    targetType: role,
     targetId: createdAdmin.id,
-    details: { username, email },
+    details: { username, email, role },
   });
   res.json({ status: "added" });
 }));
