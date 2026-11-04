@@ -64,13 +64,14 @@
         <div class="admin-brand">
           <img src="assets/ssg.png" alt="SSG logo" class="admin-logo">
           <div>
-            <p class="admin-title">SSG Election</p>
-            <p class="admin-sub">Monitoring</p>
+            <p class="admin-title">VoteDesk</p>
+            <p class="admin-sub">Admin console</p>
           </div>
         </div>
 
         <nav class="sidebar-nav">
-          <button class="sidebar-link active" data-admintab="dashboard">Dashboard</button>
+          <button class="sidebar-link" data-admintab="votedesk">Dashboard</button>
+          <button class="sidebar-link active" data-admintab="dashboard">Live Result</button>
           <button class="sidebar-link" data-admintab="students">Students</button>
           <button class="sidebar-link" data-admintab="candidates">Candidates</button>
           <button class="sidebar-link" data-admintab="qrcodes">QR Code</button>
@@ -89,11 +90,16 @@
 
       <main class="admin-main">
 
+        <section class="admin-panel hidden" id="adminPanelVotedesk">
+          <div id="voteDeskDashboard"></div>
+        </section>
+
         <section class="admin-panel" id="adminPanelDashboard">
           <div class="dashboard-header-row">
-            <h2>Dashboard</h2>
+            <h2>Live Result</h2>
             <div id="statusCardContainer"></div>
           </div>
+          <div class="glass-card dashboard-results" id="resultsCard"></div>
           <div class="dashboard-overview">
             <div class="dashboard-metrics" id="statRow"></div>
             <div class="glass-card participation-card">
@@ -102,7 +108,6 @@
               <div class="participation-legend" id="participationLegend"></div>
             </div>
           </div>
-          <div class="glass-card dashboard-results" id="resultsCard"></div>
         </section>
 
         <section class="admin-panel hidden" id="adminPanelStudents">
@@ -159,7 +164,13 @@
       </main>
     </div>
   </div>
+</div>
 
+<div class="overlay votedesk-overlay" id="voteDeskOverlay" aria-hidden="true">
+  <section class="cred-modal cred-modal-lg votedesk-dialog" role="dialog" aria-modal="true" aria-labelledby="voteDeskDialogTitle">
+    <button class="icon-btn cred-close" id="voteDeskDialogClose" type="button" aria-label="Close dialog">&times;</button>
+    <div id="voteDeskDialogContent"></div>
+  </section>
 </div>
 
 <div class="overlay" id="activityDetailOverlay" aria-hidden="true">

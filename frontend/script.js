@@ -567,7 +567,7 @@ async function restoreSession() {
       const data = await api("/admin/me", { token: adminToken });
       currentAdmin = data.admin;
       cacheAdminSession(data.admin);
-      openAdminDashboard(data.admin, sessionStorage.getItem(ADMIN_TAB_KEY));
+      openAdminDashboard(data.admin, sessionStorage.getItem(ADMIN_TAB_KEY) || "votedesk");
       return;
     } catch (error) {
       if (isInvalidSession(error)) {
@@ -581,7 +581,7 @@ async function restoreSession() {
           sessionStorage.removeItem(ADMIN_SESSION_KEY);
         }
         if (currentAdmin) {
-          openAdminDashboard(currentAdmin, sessionStorage.getItem(ADMIN_TAB_KEY));
+          openAdminDashboard(currentAdmin, sessionStorage.getItem(ADMIN_TAB_KEY) || "votedesk");
           return;
         }
       }
@@ -662,7 +662,7 @@ document.getElementById("otpResendLink").onclick = async (e) => {
 };
 
 /* ---------------- Admin dashboard ---------------- */
-function openAdminDashboard(admin, initialTab = "dashboard") {
+function openAdminDashboard(admin, initialTab = "votedesk") {
   voterSection.classList.add("hidden");
   publicPage.classList.add("hidden");
   voteFullscreen.classList.remove("show");
@@ -670,6 +670,7 @@ function openAdminDashboard(admin, initialTab = "dashboard") {
   document.getElementById("adminWho").textContent = `${admin.name} \u00b7 ${admin.email}`;
   switchAdminTab(initialTab);
   refreshAll();
+  startDashboardRefresh();
 }
 function refreshAll() {
   renderStatRow();
@@ -681,6 +682,10 @@ function refreshAll() {
   renderAdminList();
 }
 document.getElementById("adminLogout").onclick = () => {
+  if (dashboardRefreshInterval) {
+    clearInterval(dashboardRefreshInterval);
+    dashboardRefreshInterval = null;
+  }
   adminSection.classList.add("hidden");
   publicPage.classList.remove("hidden");
   voterSection.classList.remove("hidden");
@@ -692,17 +697,593 @@ document.getElementById("adminLogout").onclick = () => {
 };
 
 function switchAdminTab(tab) {
-  const validTabs = ["dashboard", "students", "candidates", "qrcodes", "admins", "activity"];
+  const validTabs = ["votedesk", "dashboard", "students", "candidates", "qrcodes", "admins", "activity"];
   const activeTab = validTabs.includes(tab) ? tab : "dashboard";
   sessionStorage.setItem(ADMIN_TAB_KEY, activeTab);
   document.querySelectorAll(".sidebar-link").forEach((b) => b.classList.toggle("active", b.dataset.admintab === activeTab));
-  ["dashboard", "students", "candidates", "qrcodes", "admins", "activity"].forEach((t) => {
+  ["votedesk", "dashboard", "students", "candidates", "qrcodes", "admins", "activity"].forEach((t) => {
     document.getElementById("adminPanel" + capitalize(t)).classList.toggle("hidden", t !== activeTab);
   });
+  if (activeTab === "votedesk") renderVoteDeskDashboard();
   if (activeTab === "activity") loadActivity(false);
 }
 document.querySelectorAll(".sidebar-link").forEach((btn) => {
   btn.addEventListener("click", () => switchAdminTab(btn.dataset.admintab));
+});
+
+/* ---------------- VoteDesk sample election dashboard ---------------- */
+const voteDeskBlocks = ["Block A", "Block B", "Block C", "Block D", "Block E", "Block F"];
+const voteDeskNameFirst = ["Amara", "Luis", "Mika", "Noah", "Sofia", "Ethan", "Isla", "Mateo", "Nina", "Caleb", "Leah", "Rafael", "Zoe", "Andre", "Maya", "Eli", "Clara", "Joaquin", "Iris", "Theo"];
+const voteDeskNameLast = ["Santos", "Reyes", "Cruz", "Garcia", "Mendoza", "Bautista", "Flores", "Navarro", "Ramos", "Castillo", "Aquino", "Villanueva", "Rivera", "Torres", "Dela Cruz", "Lopez"];
+let voteDeskElections = [];
+let voteDeskSelectedId = "election-2025";
+let voteDeskDropdownOpen = false;
+let voteDeskDialogReturnFocus = null;
+let voteDeskModal = { type: "", block: "", filter: "All", page: 1, showPasswords: false, position: "President", selectedBlock: "All blocks" };
+let voteDeskDraft = { voters: [], fileName: "", skipped: 0, positions: [] };
+
+function voteDeskMakeElection(config) {
+  const election = {
+    id: config.id,
+    title: config.title,
+    year: config.year,
+    status: config.status,
+    date: config.date,
+    blocks: [],
+    positions: [],
+    ballotsCast: 0,
+    blankBallots: 0,
+    voters: [],
+    sample: config.sample !== false,
+  };
+  election.positions = config.positions.map((position, positionIndex) => ({
+    name: position.name,
+    candidates: position.candidates.map((candidate, candidateIndex) => ({
+      id: `${election.id}-${positionIndex}-${candidateIndex}`,
+      name: candidate.name,
+      slate: candidate.slate,
+      initials: candidate.name.split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase(),
+      weight: candidate.weight,
+      votes: 0,
+      blockVotes: {},
+    })),
+  }));
+  config.blocks.forEach((totals, blockIndex) => {
+    const blockName = voteDeskBlocks[blockIndex];
+    const cast = config.status === "Upcoming" ? 0 : totals.turnout;
+    const blank = cast ? Math.max(1, Math.round(cast * 0.02)) : 0;
+    const block = { name: blockName, registered: totals.registered, cast, blank, votes: {} };
+    election.ballotsCast += cast;
+    election.blankBallots += blank;
+    election.positions.forEach((position) => {
+      const validVotes = cast - blank;
+      const weightTotal = position.candidates.reduce((sum, candidate) => sum + candidate.weight, 0);
+      let allocated = 0;
+      block.votes[position.name] = {};
+      position.candidates.forEach((candidate, candidateIndex) => {
+        const votes = candidateIndex === position.candidates.length - 1
+          ? validVotes - allocated
+          : Math.floor(validVotes * candidate.weight / weightTotal);
+        allocated += votes;
+        candidate.votes += votes;
+        candidate.blockVotes[blockName] = votes;
+        block.votes[position.name][candidate.id] = votes;
+      });
+    });
+    election.blocks.push(block);
+
+    for (let index = 0; index < totals.registered; index++) {
+      const voterNumber = election.voters.length + 1;
+      const hasCredentials = config.status === "Upcoming" || index < Math.round(totals.registered * 0.97);
+      const first = voteDeskNameFirst[(voterNumber + blockIndex * 3) % voteDeskNameFirst.length];
+      const last = voteDeskNameLast[(voterNumber * 3 + blockIndex) % voteDeskNameLast.length];
+      const name = `${first} ${last}`;
+      const username = `${first}.${last}.${String(voterNumber).padStart(3, "0")}`.toLowerCase();
+      election.voters.push({
+        id: `${election.year}-${String(voterNumber).padStart(4, "0")}`,
+        name,
+        block: blockName,
+        username: hasCredentials ? username : "",
+        password: hasCredentials ? `Sample-${String(voterNumber).padStart(4, "0")}` : "",
+        hasCredentials,
+        voted: config.status !== "Upcoming" && index < cast,
+      });
+    }
+  });
+  return election;
+}
+
+function voteDeskPosition(name, candidates) {
+  return {
+    name,
+    candidates: candidates.map(([candidateName, slate, weight]) => ({
+      name: candidateName,
+      slate,
+      weight,
+    })),
+  };
+}
+
+voteDeskElections = [
+  voteDeskMakeElection({
+    id: "election-2025", title: "2025 General Election", year: 2025, status: "Certified", date: "October 21, 2025",
+    blocks: [{ registered: 126, turnout: 103 }, { registered: 108, turnout: 88 }, { registered: 143, turnout: 121 }, { registered: 97, turnout: 78 }, { registered: 119, turnout: 101 }, { registered: 132, turnout: 110 }],
+    positions: [
+      voteDeskPosition("President", [["Amara Villanueva", "Bagong Simula", 43], ["Luis Mendoza", "Unity Bloc", 35], ["Nina Ramos", "Independent", 22]]),
+      voteDeskPosition("Vice President", [["Mika Reyes", "Unity Bloc", 39], ["Ethan Navarro", "Bagong Simula", 36], ["Sofia Castillo", "Independent", 25]]),
+    ],
+  }),
+  voteDeskMakeElection({
+    id: "election-2022", title: "2022 General Election", year: 2022, status: "Certified", date: "October 18, 2022",
+    blocks: [{ registered: 112, turnout: 92 }, { registered: 95, turnout: 76 }, { registered: 128, turnout: 108 }, { registered: 104, turnout: 83 }, { registered: 117, turnout: 98 }, { registered: 121, turnout: 96 }],
+    positions: [
+      voteDeskPosition("President", [["Mateo Garcia", "Unity Bloc", 40], ["Leah Bautista", "Bagong Simula", 37], ["Andre Flores", "Independent", 23]]),
+      voteDeskPosition("Vice President", [["Zoe Torres", "Bagong Simula", 42], ["Rafael Aquino", "Unity Bloc", 34], ["Clara Rivera", "Independent", 24]]),
+    ],
+  }),
+  voteDeskMakeElection({
+    id: "election-2019", title: "2019 General Election", year: 2019, status: "Archived", date: "October 15, 2019",
+    blocks: [{ registered: 98, turnout: 73 }, { registered: 114, turnout: 91 }, { registered: 106, turnout: 84 }, { registered: 89, turnout: 67 }, { registered: 123, turnout: 101 }, { registered: 109, turnout: 80 }],
+    positions: [
+      voteDeskPosition("President", [["Maya Dela Cruz", "Bagong Simula", 45], ["Caleb Ramos", "Independent", 31], ["Isla Santos", "Unity Bloc", 24]]),
+      voteDeskPosition("Vice President", [["Joaquin Lopez", "Unity Bloc", 38], ["Iris Navarro", "Bagong Simula", 36], ["Theo Castillo", "Independent", 26]]),
+    ],
+  }),
+];
+
+function voteDeskElection() {
+  return voteDeskElections.find((election) => election.id === voteDeskSelectedId) || voteDeskElections[0];
+}
+
+function voteDeskWinner(position) {
+  return [...position.candidates].sort((a, b) => b.votes - a.votes)[0];
+}
+
+function voteDeskStatusClass(status) {
+  return String(status).toLowerCase().replace(/\s+/g, "-");
+}
+
+function voteDeskAvatar(name, extraClass = "") {
+  const initials = String(name || "?").split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase();
+  return `<span class="vd-avatar ${extraClass}" aria-hidden="true">${escapeHtml(initials)}</span>`;
+}
+
+function renderVoteDeskDashboard() {
+  const root = document.getElementById("voteDeskDashboard");
+  if (!root) return;
+  const election = voteDeskElection();
+  const registered = election.voters.length;
+  const voted = election.voters.filter((voter) => voter.voted).length;
+  const credentials = election.voters.filter((voter) => voter.hasCredentials).length;
+  const turnout = registered ? Math.round(voted / registered * 100) : 0;
+  const winners = election.positions.map((position) => {
+    const winner = voteDeskWinner(position);
+    const validVotes = position.candidates.reduce((sum, candidate) => sum + candidate.votes, 0);
+    const next = [...position.candidates].sort((a, b) => b.votes - a.votes)[1];
+    const margin = winner && validVotes ? winner.votes - (next?.votes || 0) : 0;
+    return `<article class="vd-winner-card">
+      <header class="vd-winner-band">
+        <span class="vd-trophy" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 4h8v4a4 4 0 0 1-8 0V4ZM8 6H4v2a4 4 0 0 0 4 4m8-6h4v2a4 4 0 0 1-4 4m-4 2v3m-4 3h8m-7-3h6v3H9z"/></svg></span>
+        <h3>${escapeHtml(position.name)}</h3>
+        <span class="vd-status ${election.ballotsCast ? "vd-status-winner" : "vd-status-pending"}">${election.ballotsCast ? "Winner" : "Voting not started"}</span>
+      </header>
+      <div class="vd-winner-body">
+        ${election.ballotsCast ? `${voteDeskAvatar(winner.name, "vd-avatar-winner")}<div class="vd-winner-copy"><strong>${escapeHtml(winner.name)}</strong><span>${escapeHtml(winner.slate)}</span></div>
+          <div class="vd-share-label"><span>Share of valid votes</span><strong>${Math.round(winner.votes / Math.max(1, validVotes) * 100)}%</strong></div>
+          <div class="vd-progress"><span style="width:${Math.round(winner.votes / Math.max(1, validVotes) * 100)}%"></span></div>
+          <div class="vd-winner-facts"><div><span>Votes</span><strong>${winner.votes.toLocaleString()}</strong></div><div><span>Won by</span><strong>${margin.toLocaleString()} votes</strong></div></div>`
+          : `<div class="vd-undecided">${voteDeskAvatar("", "vd-avatar-winner")}<div><strong>Winner not decided yet</strong><span>Results will appear after voting begins.</span></div></div>`}
+      </div>
+    </article>`;
+  }).join("");
+
+  root.innerHTML = `
+    <header class="vd-page-header">
+      <div class="vd-page-title"><span class="vd-eyebrow">Election dashboard <span class="vd-sample-chip">SAMPLE DATA</span></span><h1>${escapeHtml(election.title)}</h1>
+        <div class="vd-meta"><span class="vd-status vd-status-${voteDeskStatusClass(election.status)}">${escapeHtml(election.status)}</span><span>${escapeHtml(election.date)}</span><span>${election.ballotsCast.toLocaleString()} ballots cast</span></div>
+      </div>
+    </header>
+    <div class="vd-toolbar">
+      <div class="vd-election-picker">
+        <button class="vd-button vd-button-primary" type="button" data-vd-action="toggle-elections" aria-expanded="${voteDeskDropdownOpen}">${election.year} election <span aria-hidden="true">&#9662;</span></button>
+        ${voteDeskDropdownOpen ? `<div class="vd-election-menu" role="menu">${voteDeskElections.map((item) => `<button type="button" role="menuitem" class="vd-election-option ${item.id === election.id ? "is-selected" : ""}" data-vd-action="select-election" data-election-id="${escapeHtml(item.id)}"><span class="vd-election-option-copy"><strong>${item.year} · ${escapeHtml(item.title.replace(`${item.year} `, ""))}</strong><small>${escapeHtml(item.status)} · ${escapeHtml(item.date)}</small></span><span class="vd-election-check">${item.id === election.id ? "✓" : ""}</span></button>`).join("")}<div class="vd-election-menu-divider"></div><button class="vd-create-election-row" type="button" data-vd-action="create-election">+ Create new election</button></div>` : ""}
+      </div>
+      <button class="vd-button" type="button" data-vd-action="participants">Participants</button>
+      <button class="vd-button" type="button" data-vd-action="candidates">Candidates</button>
+      <button class="vd-button" type="button" data-vd-action="votes">Votes by block</button>
+    </div>
+    <section class="vd-summary-grid" aria-label="Election summary">
+      <article class="vd-summary-card"><span>Registered voters</span><strong>${registered.toLocaleString()}</strong><small>Across ${election.blocks.length} blocks</small></article>
+      <article class="vd-summary-card"><span>Voted</span><strong>${voted.toLocaleString()}</strong><small>${turnout}% turnout</small></article>
+      <article class="vd-summary-card"><span>Username and password generated</span><strong>${credentials.toLocaleString()}</strong><small>${(registered - credentials).toLocaleString()} voters still have none</small></article>
+      <article class="vd-summary-card"><span>Did not vote</span><strong>${(registered - voted).toLocaleString()}</strong><small>Of registered voters</small></article>
+    </section>
+    <section class="vd-winners-section"><div class="vd-section-heading"><div><span class="vd-eyebrow">Election results</span><h2>Winners</h2></div><span class="vd-section-note">${election.ballotsCast ? `${election.ballotsCast.toLocaleString()} ballots counted` : "Results pending"}</span></div><div class="vd-winners-grid">${winners}</div></section>`;
+}
+
+const voteDeskDashboard = document.getElementById("voteDeskDashboard");
+voteDeskDashboard.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-vd-action]");
+  if (!button) {
+    if (voteDeskDropdownOpen && !event.target.closest(".vd-election-picker")) {
+      voteDeskDropdownOpen = false;
+      renderVoteDeskDashboard();
+    }
+    return;
+  }
+  const action = button.dataset.vdAction;
+  if (action === "toggle-elections") {
+    voteDeskDropdownOpen = !voteDeskDropdownOpen;
+    renderVoteDeskDashboard();
+  } else if (action === "select-election") {
+    voteDeskSelectedId = button.dataset.electionId;
+    voteDeskDropdownOpen = false;
+    renderVoteDeskDashboard();
+  } else if (action === "participants") {
+    openVoteDeskDialog("participants");
+  } else if (action === "candidates") {
+    openVoteDeskDialog("candidates");
+  } else if (action === "votes") {
+    openVoteDeskDialog("votes");
+  } else if (action === "create-election") {
+    voteDeskDropdownOpen = false;
+    renderVoteDeskDashboard();
+    openVoteDeskDialog("create");
+  }
+});
+
+document.addEventListener("click", (event) => {
+  if (!voteDeskDropdownOpen || event.target.closest(".vd-election-picker")) return;
+  voteDeskDropdownOpen = false;
+  if (sessionStorage.getItem(ADMIN_TAB_KEY) === "votedesk") renderVoteDeskDashboard();
+});
+
+const voteDeskOverlay = document.getElementById("voteDeskOverlay");
+const voteDeskDialogContent = document.getElementById("voteDeskDialogContent");
+document.getElementById("voteDeskDialogClose").addEventListener("click", closeVoteDeskDialog);
+voteDeskOverlay.addEventListener("click", (event) => {
+  if (event.target === voteDeskOverlay) closeVoteDeskDialog();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && voteDeskOverlay.classList.contains("show")) closeVoteDeskDialog();
+});
+
+function voteDeskDialogHeader(title, subtitle) {
+  return `<p class="vd-eyebrow">Election details</p><h2 id="voteDeskDialogTitle">${escapeHtml(title)}</h2><p class="vd-dialog-subtitle">${escapeHtml(subtitle)}</p>`;
+}
+
+function openVoteDeskDialog(type) {
+  voteDeskModal = { type, block: "", filter: "All", page: 1, showPasswords: false, position: "President", selectedBlock: "All blocks" };
+  if (type === "create") {
+    voteDeskDraft = {
+      voters: [], fileName: "", skipped: 0, name: "", year: "", date: "",
+      positions: [
+        { name: "President", candidates: "" },
+        { name: "Vice President", candidates: "" },
+      ],
+    };
+  }
+  voteDeskDialogReturnFocus = document.activeElement;
+  renderVoteDeskDialog();
+  voteDeskOverlay.classList.add("show");
+  voteDeskOverlay.setAttribute("aria-hidden", "false");
+  document.getElementById("voteDeskDialogClose").focus();
+}
+
+function closeVoteDeskDialog() {
+  voteDeskOverlay.classList.remove("show");
+  voteDeskOverlay.setAttribute("aria-hidden", "true");
+  if (voteDeskDialogReturnFocus?.isConnected) voteDeskDialogReturnFocus.focus();
+}
+
+function voteDeskStat(label, value, note = "") {
+  return `<article class="vd-dialog-stat"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${note ? `<small>${escapeHtml(note)}</small>` : ""}</article>`;
+}
+
+function renderVoteDeskDialog() {
+  const election = voteDeskElection();
+  if (voteDeskModal.type === "participants") renderVoteDeskParticipants(election);
+  if (voteDeskModal.type === "candidates") renderVoteDeskCandidates(election);
+  if (voteDeskModal.type === "votes") renderVoteDeskVotes(election);
+  if (voteDeskModal.type === "create") renderVoteDeskCreate();
+}
+
+function renderVoteDeskParticipants(election) {
+  const voted = election.voters.filter((voter) => voter.voted).length;
+  const credentials = election.voters.filter((voter) => voter.hasCredentials).length;
+  if (!voteDeskModal.block) {
+    voteDeskDialogContent.innerHTML = `${voteDeskDialogHeader("Participants", `${election.title} · sample voter list`)}
+      <div class="vd-dialog-stats">${voteDeskStat("Registered voters", election.voters.length.toLocaleString())}${voteDeskStat("Voted", voted.toLocaleString())}${voteDeskStat("Credentials generated", credentials.toLocaleString())}</div>
+      <div class="vd-block-grid">${election.blocks.map((block) => {
+        const blockVoters = election.voters.filter((voter) => voter.block === block.name);
+        const blockVoted = blockVoters.filter((voter) => voter.voted).length;
+        const blockCreds = blockVoters.filter((voter) => voter.hasCredentials).length;
+        const turnout = blockVoters.length ? Math.round(blockVoted / blockVoters.length * 100) : 0;
+        return `<button type="button" class="vd-block-card" data-vd-action="open-block" data-block="${escapeHtml(block.name)}"><span class="vd-block-card-title">${escapeHtml(block.name)} <span aria-hidden="true">&#8594;</span></span><span class="vd-block-card-metrics"><span><strong>${blockVoters.length}</strong> registered</span><span><strong>${blockVoted}</strong> voted · ${turnout}%</span><span><strong>${blockCreds}</strong> credentials</span></span><span class="vd-progress"><span style="width:${turnout}%"></span></span><span class="vd-view-cue">View participants</span></button>`;
+      }).join("")}</div>`;
+    return;
+  }
+
+  const blockVoters = election.voters.filter((voter) => voter.block === voteDeskModal.block);
+  const statuses = blockVoters.map((voter) => !voter.hasCredentials ? "No credentials" : voter.voted ? "Voted" : "Not voted");
+  const filters = ["All", "Voted", "Not voted", "No credentials"];
+  const statusCounts = Object.fromEntries(filters.map((filter) => [filter, filter === "All" ? blockVoters.length : statuses.filter((status) => status === filter).length]));
+  const filtered = blockVoters.filter((voter) => {
+    const status = !voter.hasCredentials ? "No credentials" : voter.voted ? "Voted" : "Not voted";
+    return voteDeskModal.filter === "All" || voteDeskModal.filter === status;
+  }).sort((a, b) => a.name.localeCompare(b.name));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / 20));
+  voteDeskModal.page = Math.min(voteDeskModal.page, totalPages);
+  const start = (voteDeskModal.page - 1) * 20;
+  const shown = filtered.slice(start, start + 20);
+  const blockVoted = blockVoters.filter((voter) => voter.voted).length;
+  const blockCreds = blockVoters.filter((voter) => voter.hasCredentials).length;
+
+  voteDeskDialogContent.innerHTML = `${voteDeskDialogHeader(`${voteDeskModal.block} participants`, `${election.title} · sorted by participant name`)}
+    <div class="vd-dialog-toolbar"><button class="vd-button" type="button" data-vd-action="all-blocks">&#8592; All blocks</button><button class="vd-button" type="button" data-vd-action="toggle-passwords">${voteDeskModal.showPasswords ? "Hide passwords" : "Show passwords"}</button></div>
+    <div class="vd-dialog-stats vd-dialog-stats-compact">${voteDeskStat("Registered", blockVoters.length.toLocaleString())}${voteDeskStat("Voted", blockVoted.toLocaleString())}${voteDeskStat("Credentials generated", blockCreds.toLocaleString())}</div>
+    <div class="vd-filter-row">${filters.map((filter) => `<button type="button" class="vd-filter ${voteDeskModal.filter === filter ? "is-active" : ""}" data-vd-action="filter" data-filter="${escapeHtml(filter)}">${escapeHtml(filter)} <span>${statusCounts[filter]}</span></button>`).join("")}</div>
+    <div class="vd-table-wrap"><table class="vd-table"><thead><tr><th>Voter ID</th><th>Participant</th><th>Block</th><th>Username</th><th>Password</th><th>Status</th></tr></thead><tbody>${shown.length ? shown.map((voter) => {
+      const status = !voter.hasCredentials ? "No credentials" : voter.voted ? "Voted" : "Not voted";
+      return `<tr><td class="vd-mono">${escapeHtml(voter.id)}</td><td>${escapeHtml(voter.name)}</td><td>${escapeHtml(voter.block)}</td><td class="vd-mono">${escapeHtml(voter.username || "—")}</td><td class="vd-mono">${voter.password ? escapeHtml(voteDeskModal.showPasswords ? voter.password : "••••••••") : "—"}</td><td><span class="vd-status vd-status-${voteDeskStatusClass(status)}">${escapeHtml(status)}</span></td></tr>`;
+    }).join("") : `<tr><td colspan="6" class="vd-empty-cell">No participants match this filter.</td></tr>`}</tbody></table></div>
+    <div class="vd-pagination"><span>Showing ${filtered.length ? start + 1 : 0} to ${Math.min(start + 20, filtered.length)} of ${filtered.length}</span><div><button class="vd-button" type="button" data-vd-action="previous-page" ${voteDeskModal.page <= 1 ? "disabled" : ""}>Previous</button><button class="vd-button" type="button" data-vd-action="next-page" ${voteDeskModal.page >= totalPages ? "disabled" : ""}>Next</button></div></div>
+    <p class="vd-security-note">Sample credentials are shown for demonstration. A live system should store only hashed passwords.</p>`;
+}
+
+function renderVoteDeskCandidates(election) {
+  voteDeskDialogContent.innerHTML = `${voteDeskDialogHeader("Candidates", `${election.title} · sample candidate results`)}
+    ${election.positions.map((position) => {
+      const valid = position.candidates.reduce((sum, candidate) => sum + candidate.votes, 0);
+      const winner = voteDeskWinner(position);
+      return `<section class="vd-candidate-section"><header><h3>${escapeHtml(position.name)}</h3><span>${valid.toLocaleString()} valid votes</span></header>
+        <div class="vd-candidate-list">${position.candidates.slice().sort((a, b) => b.votes - a.votes).map((candidate) => {
+          const share = valid ? Math.round(candidate.votes / valid * 100) : 0;
+          const state = valid ? candidate.id === winner.id ? "Won" : "Lost" : "Pending";
+          return `<article class="vd-candidate-row">${voteDeskAvatar(candidate.name)}<div class="vd-candidate-main"><strong>${escapeHtml(candidate.name)}</strong><span>Ballot ${String(position.candidates.indexOf(candidate) + 1).padStart(2, "0")} · ${escapeHtml(candidate.slate)}</span><div class="vd-block-chips">${election.blocks.map((block) => `<span>${escapeHtml(block.name.replace("Block ", ""))} <b>${candidate.blockVotes[block.name] || 0}</b></span>`).join("")}</div></div><div class="vd-candidate-result"><strong>${candidate.votes.toLocaleString()} votes</strong><span>${share}% share</span><span class="vd-status ${valid ? state === "Won" ? "vd-status-winner" : "vd-status-lost" : "vd-status-pending"}">${state}</span></div></article>`;
+        }).join("")}</div></section>`;
+    }).join("")}`;
+}
+
+function renderVoteDeskVotes(election) {
+  const position = election.positions.find((item) => item.name === voteDeskModal.position) || election.positions[0];
+  if (!position) {
+    voteDeskDialogContent.innerHTML = `${voteDeskDialogHeader("Votes by block", `${election.title} · no positions`)}<p class="vd-empty-state">No positions have been added to this election.</p>`;
+    return;
+  }
+  const blocks = voteDeskModal.selectedBlock === "All blocks"
+    ? election.blocks
+    : election.blocks.filter((block) => block.name === voteDeskModal.selectedBlock);
+  const candidateVotes = (block, candidate) => block.votes[position.name]?.[candidate.id] || 0;
+  const rows = blocks.map((block) => {
+    const leader = position.candidates.slice().sort((a, b) => candidateVotes(block, b) - candidateVotes(block, a))[0];
+    return `<tr><td><strong>${escapeHtml(block.name)}</strong></td><td class="vd-mono">${block.registered}</td><td class="vd-mono">${block.cast}</td><td class="vd-mono">${block.registered ? Math.round(block.cast / block.registered * 100) : 0}%</td>${position.candidates.map((candidate) => `<td class="vd-mono ${election.ballotsCast && leader?.id === candidate.id ? "vd-leading-cell" : ""}">${candidateVotes(block, candidate)}</td>`).join("")}<td class="vd-mono">${block.blank}</td><td>${block.cast ? `<span class="vd-status vd-status-winner">${escapeHtml(leader.name)}</span>` : `<span class="vd-status vd-status-pending">Pending</span>`}</td></tr>`;
+  }).join("");
+  const totalRow = voteDeskModal.selectedBlock === "All blocks" ? `<tr class="vd-total-row"><td>All blocks</td><td class="vd-mono">${election.blocks.reduce((sum, block) => sum + block.registered, 0)}</td><td class="vd-mono">${election.ballotsCast}</td><td class="vd-mono">${election.voters.length ? Math.round(election.ballotsCast / election.voters.length * 100) : 0}%</td>${position.candidates.map((candidate) => `<td class="vd-mono">${candidate.votes}</td>`).join("")}<td class="vd-mono">${election.blankBallots}</td><td>${election.ballotsCast ? `<strong>${escapeHtml(voteDeskWinner(position).name)}</strong>` : `<span class="vd-status vd-status-pending">Pending</span>`}</td></tr>` : "";
+  const selected = blocks[0];
+  const valid = selected ? position.candidates.reduce((sum, candidate) => sum + candidateVotes(selected, candidate), 0) : 0;
+  voteDeskDialogContent.innerHTML = `${voteDeskDialogHeader("Votes by block", `${election.title} · ballot totals by block`)}
+    <div class="vd-vote-controls"><div class="vd-filter-row">${election.positions.map((item) => `<button class="vd-filter ${item.name === position.name ? "is-active" : ""}" type="button" data-vd-action="vote-position" data-position="${escapeHtml(item.name)}">${escapeHtml(item.name)}</button>`).join("")}</div><div class="vd-filter-row vd-block-filters">${["All blocks", ...election.blocks.map((block) => block.name)].map((name) => `<button class="vd-filter ${voteDeskModal.selectedBlock === name ? "is-active" : ""}" type="button" data-vd-action="vote-block" data-block="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join("")}</div></div>
+    <div class="vd-table-wrap"><table class="vd-table vd-votes-table"><thead><tr><th>Block</th><th>Registered</th><th>Cast</th><th>Turnout</th>${position.candidates.map((candidate) => `<th>${escapeHtml(candidate.name)}</th>`).join("")}<th>Blank</th><th>Leading</th></tr></thead><tbody>${rows}${totalRow}</tbody></table></div>
+    ${voteDeskModal.selectedBlock !== "All blocks" && selected ? `<section class="vd-breakdown"><h3>${escapeHtml(selected.name)} · valid vote share</h3>${position.candidates.map((candidate) => {
+      const votes = candidateVotes(selected, candidate);
+      const share = valid ? Math.round(votes / valid * 100) : 0;
+      return `<div class="vd-breakdown-row"><div><span>${escapeHtml(candidate.name)}</span><strong>${votes} · ${share}%</strong></div><span class="vd-progress"><span style="width:${share}%"></span></span></div>`;
+    }).join("")}</section>` : ""}`;
+}
+
+function voteDeskParseCsv(text) {
+  const rows = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim()).map((line) => line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((value) => value.trim().replace(/^"|"$/g, "").replace(/""/g, '"')));
+  if (rows.length && rows[0][0]?.toLowerCase() === "name" && rows[0][1]?.toLowerCase() === "block") rows.shift();
+  const voters = [];
+  let skipped = 0;
+  rows.forEach((row) => {
+    const name = (row[0] || "").trim();
+    const block = (row[1] || "").trim();
+    if (!name || !block) {
+      skipped++;
+      return;
+    }
+    voters.push({ name, block });
+  });
+  return { voters, skipped };
+}
+
+function renderVoteDeskCreate() {
+  const blocks = [...new Set(voteDeskDraft.voters.map((voter) => voter.block))].sort((a, b) => a.localeCompare(b));
+  const counts = blocks.map((block) => [block, voteDeskDraft.voters.filter((voter) => voter.block === block).length]);
+  voteDeskDialogContent.innerHTML = `${voteDeskDialogHeader("Create new election", "Prepare an upcoming election with a voter list and candidate positions.")}
+    <div id="vdCreateErrors" class="vd-alert hidden" role="alert"></div>
+    <form id="vdCreateElectionForm" novalidate>
+      <div class="vd-form-grid"><label>Election name<input name="name" required placeholder="General Election" value="${escapeHtml(voteDeskDraft.name)}"></label><label>Year<input name="year" required inputmode="numeric" placeholder="2027" value="${escapeHtml(voteDeskDraft.year)}"></label><label class="vd-form-full">Election day<input name="date" type="date" required value="${escapeHtml(voteDeskDraft.date)}"></label></div>
+      <section class="vd-create-section"><h3>Voter list</h3><p>CSV columns: <strong>name, block</strong>. Header row is optional. Example: <code>Maria Santos, Block A</code>. Voters are grouped by block and receive generated sample credentials.</p><div class="vd-upload-actions"><label class="vd-button vd-file-button">Choose CSV file<input id="vdVoterCsv" type="file" accept=".csv,text/csv"></label><button class="vd-button" type="button" data-vd-action="sample-list">Use a sample list</button></div>
+      ${voteDeskDraft.fileName ? `<div class="vd-upload-summary"><strong>${voteDeskDraft.voters.length} voters in ${counts.length} blocks</strong><span>${escapeHtml(voteDeskDraft.fileName)}</span><div class="vd-block-chips">${counts.map(([block, count]) => `<span>${escapeHtml(block)} <b>${count}</b></span>`).join("")}</div>${voteDeskDraft.skipped ? `<small>${voteDeskDraft.skipped} rows skipped because name or block was missing.</small>` : ""}<button class="vd-text-button" type="button" data-vd-action="remove-file">Remove file</button></div>` : `<p class="vd-upload-empty">No voter list selected.</p>`}
+      </section>
+      <section class="vd-create-section"><div class="vd-position-heading"><div><h3>Positions and candidates</h3><p>One candidate per line. Use <code>Name, Slate</code>; omit a slate for Independent.</p></div><button class="vd-button" type="button" data-vd-action="add-position" ${voteDeskDraft.positions.length >= 6 ? "disabled" : ""}>Add position</button></div>
+        <div class="vd-position-editors">${voteDeskDraft.positions.map((position, index) => `<div class="vd-position-editor"><div><label>Position name<input data-position-index="${index}" data-position-field="name" value="${escapeHtml(position.name)}" placeholder="Position name"></label><button class="vd-text-button vd-remove-position" type="button" data-vd-action="remove-position" data-position-index="${index}" aria-label="Remove ${escapeHtml(position.name || "position")}">Remove</button></div><label>Candidates<textarea data-position-index="${index}" data-position-field="candidates" rows="3" placeholder="Maria Santos, Bagong Simula&#10;Juan Reyes, Unity Bloc">${escapeHtml(position.candidates)}</textarea></label></div>`).join("")}</div>
+      </section>
+      <div class="vd-dialog-actions"><button class="vd-button" type="button" data-vd-action="cancel-create">Cancel</button><button class="vd-button vd-button-primary" type="submit">Create election</button></div>
+    </form>`;
+}
+
+function voteDeskCollectDraftInputs() {
+  voteDeskDialogContent.querySelectorAll("[data-position-index][data-position-field]").forEach((input) => {
+    const position = voteDeskDraft.positions[Number(input.dataset.positionIndex)];
+    if (position) position[input.dataset.positionField] = input.value;
+  });
+}
+
+function voteDeskCreateElection() {
+  voteDeskCollectDraftInputs();
+  const form = document.getElementById("vdCreateElectionForm");
+  const name = form.querySelector('[name="name"]').value.trim();
+  const yearText = form.querySelector('[name="year"]').value.trim();
+  const date = form.querySelector('[name="date"]').value;
+  const errors = [];
+  if (!name) errors.push("Enter an election name.");
+  if (!/^\d{4}$/.test(yearText) || Number(yearText) < 1900 || Number(yearText) > 9999) errors.push("Enter a valid four-digit year.");
+  if (!voteDeskDraft.voters.length) errors.push("Add a voter list before creating the election.");
+  if (!date) errors.push("Choose an election day.");
+  voteDeskDraft.positions.forEach((position, index) => {
+    const parsedCandidates = position.candidates.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    position.parsedCandidates = parsedCandidates.map((line) => {
+      const [candidateName, ...slateParts] = line.split(",");
+      return { name: candidateName.trim(), slate: slateParts.join(",").trim() || "Independent", weight: 1 };
+    }).filter((candidate) => candidate.name);
+    if (!position.name.trim()) errors.push(`Position ${index + 1} needs a name.`);
+    if (position.parsedCandidates.length < 2) errors.push(`${position.name.trim() || `Position ${index + 1}`} needs at least two candidates.`);
+  });
+  if (errors.length) {
+    const alert = document.getElementById("vdCreateErrors");
+    alert.innerHTML = `<strong>Check the following before creating:</strong><ul>${errors.map((error) => `<li>${escapeHtml(error)}</li>`).join("")}</ul>`;
+    alert.classList.remove("hidden");
+    alert.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    return;
+  }
+
+  const year = Number(yearText);
+  const generated = voteDeskDraft.voters.map((voter, index) => ({
+    id: `${year}-${String(index + 1).padStart(4, "0")}`,
+    name: voter.name,
+    block: voter.block,
+    username: `voter.${year}.${String(index + 1).padStart(4, "0")}`,
+    password: `Sample-${year}-${String(index + 1).padStart(4, "0")}`,
+    hasCredentials: true,
+    voted: false,
+  }));
+  const voterBlocks = [...new Set(generated.map((voter) => voter.block))].sort((a, b) => a.localeCompare(b));
+  const election = {
+    id: `election-${year}-${Date.now()}`,
+    title: name,
+    year,
+    status: "Upcoming",
+    date: new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+    blocks: voterBlocks.map((blockName) => ({
+      name: blockName,
+      registered: generated.filter((voter) => voter.block === blockName).length,
+      cast: 0,
+      blank: 0,
+      votes: {},
+    })),
+    positions: voteDeskDraft.positions.map((position) => ({
+      name: position.name.trim(),
+      candidates: position.parsedCandidates.map((candidate, index) => ({
+        id: `candidate-${year}-${position.name}-${index}`,
+        name: candidate.name,
+        slate: candidate.slate,
+        initials: candidate.name.split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase(),
+        weight: 1,
+        votes: 0,
+        blockVotes: Object.fromEntries(voterBlocks.map((block) => [block, 0])),
+      })),
+    })),
+    ballotsCast: 0,
+    blankBallots: 0,
+    voters: generated,
+    sample: true,
+  };
+  election.positions.forEach((position) => {
+    election.blocks.forEach((block) => { block.votes[position.name] = Object.fromEntries(position.candidates.map((candidate) => [candidate.id, 0])); });
+  });
+  voteDeskElections.unshift(election);
+  voteDeskSelectedId = election.id;
+  voteDeskDropdownOpen = false;
+  closeVoteDeskDialog();
+  renderVoteDeskDashboard();
+}
+
+voteDeskDialogContent.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-vd-action]");
+  if (!button) return;
+  const action = button.dataset.vdAction;
+  if (action === "open-block") {
+    voteDeskModal.block = button.dataset.block;
+    voteDeskModal.filter = "All";
+    voteDeskModal.page = 1;
+    renderVoteDeskDialog();
+  } else if (action === "all-blocks") {
+    voteDeskModal.block = "";
+    renderVoteDeskDialog();
+  } else if (action === "toggle-passwords") {
+    voteDeskModal.showPasswords = !voteDeskModal.showPasswords;
+    renderVoteDeskDialog();
+  } else if (action === "filter") {
+    voteDeskModal.filter = button.dataset.filter;
+    voteDeskModal.page = 1;
+    renderVoteDeskDialog();
+  } else if (action === "previous-page") {
+    voteDeskModal.page = Math.max(1, voteDeskModal.page - 1);
+    renderVoteDeskDialog();
+  } else if (action === "next-page") {
+    voteDeskModal.page++;
+    renderVoteDeskDialog();
+  } else if (action === "vote-position") {
+    voteDeskModal.position = button.dataset.position;
+    renderVoteDeskDialog();
+  } else if (action === "vote-block") {
+    voteDeskModal.selectedBlock = button.dataset.block;
+    renderVoteDeskDialog();
+  } else if (action === "sample-list") {
+    voteDeskDraft.fileName = "sample-voter-list.csv";
+    voteDeskDraft.skipped = 0;
+    voteDeskDraft.voters = [
+      { name: "Maria Santos", block: "Block A" }, { name: "Luis Reyes", block: "Block A" },
+      { name: "Amara Cruz", block: "Block A" }, { name: "Noah Garcia", block: "Block B" },
+      { name: "Sofia Mendoza", block: "Block B" }, { name: "Ethan Flores", block: "Block C" },
+      { name: "Mika Navarro", block: "Block C" }, { name: "Leah Ramos", block: "Block D" },
+      { name: "Andre Castillo", block: "Block D" }, { name: "Nina Aquino", block: "Block E" },
+      { name: "Rafael Rivera", block: "Block E" }, { name: "Clara Torres", block: "Block F" },
+    ];
+    renderVoteDeskDialog();
+  } else if (action === "remove-file") {
+    voteDeskDraft.voters = [];
+    voteDeskDraft.fileName = "";
+    voteDeskDraft.skipped = 0;
+    renderVoteDeskDialog();
+  } else if (action === "add-position") {
+    voteDeskCollectDraftInputs();
+    if (voteDeskDraft.positions.length < 6) voteDeskDraft.positions.push({ name: "", candidates: "" });
+    renderVoteDeskDialog();
+  } else if (action === "remove-position") {
+    voteDeskCollectDraftInputs();
+    voteDeskDraft.positions.splice(Number(button.dataset.positionIndex), 1);
+    renderVoteDeskDialog();
+  } else if (action === "cancel-create") {
+    closeVoteDeskDialog();
+  }
+});
+
+voteDeskDialogContent.addEventListener("input", (event) => {
+  if (event.target.matches('[name="name"]')) voteDeskDraft.name = event.target.value;
+  if (event.target.matches('[name="year"]')) voteDeskDraft.year = event.target.value;
+  if (event.target.matches('[name="date"]')) voteDeskDraft.date = event.target.value;
+  if (event.target.matches("[data-position-index][data-position-field]")) {
+    const position = voteDeskDraft.positions[Number(event.target.dataset.positionIndex)];
+    if (position) position[event.target.dataset.positionField] = event.target.value;
+  }
+});
+voteDeskDialogContent.addEventListener("change", async (event) => {
+  if (event.target.id !== "vdVoterCsv") return;
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const parsed = voteDeskParseCsv(await file.text());
+    voteDeskDraft.voters = parsed.voters;
+    voteDeskDraft.fileName = file.name;
+    voteDeskDraft.skipped = parsed.skipped;
+    renderVoteDeskDialog();
+  } catch (_error) {
+    voteDeskDraft.voters = [];
+    voteDeskDraft.fileName = "";
+    const alert = document.getElementById("vdCreateErrors");
+    alert.textContent = "The voter list could not be read. Please choose a valid CSV file.";
+    alert.classList.remove("hidden");
+  }
+});
+voteDeskDialogContent.addEventListener("submit", (event) => {
+  if (event.target.id !== "vdCreateElectionForm") return;
+  event.preventDefault();
+  voteDeskCreateElection();
 });
 
 let activityPage = 1;
@@ -815,6 +1396,29 @@ document.getElementById("refreshActivity").onclick = () => loadActivity(false);
 document.getElementById("activityLoadMore").onclick = () => loadActivity(true);
 
 /* ---- dashboard: stats + election status toggle + live results ---- */
+let dashboardRefreshInterval = null;
+let dashboardRefreshInProgress = false;
+
+function startDashboardRefresh() {
+  if (dashboardRefreshInterval) clearInterval(dashboardRefreshInterval);
+  dashboardRefreshInterval = setInterval(() => {
+    if (adminSection.classList.contains("hidden") || sessionStorage.getItem(ADMIN_TAB_KEY) !== "dashboard") return;
+    refreshLiveDashboard();
+  }, 15000);
+}
+
+async function refreshLiveDashboard() {
+  if (dashboardRefreshInProgress) return;
+  dashboardRefreshInProgress = true;
+  const refreshButton = document.getElementById("refreshLiveResults");
+  if (refreshButton) refreshButton.disabled = true;
+  try {
+    await Promise.all([renderStatRow(), renderResultsPanel()]);
+  } finally {
+    dashboardRefreshInProgress = false;
+  }
+}
+
 async function renderStatRow() {
   let stats;
   try {
@@ -865,19 +1469,36 @@ async function renderStatRow() {
 
 async function renderResultsPanel() {
   const el = document.getElementById("resultsCard");
+  const header = (updatedAt = "Waiting for results…") => `
+    <div class="live-results-header">
+      <div>
+        <div class="live-results-title">
+          <h3>Election results</h3>
+          <span class="live-results-indicator">LIVE</span>
+        </div>
+        <p class="live-results-meta" aria-live="polite">Auto-refreshes every 15 seconds · ${updatedAt}</p>
+      </div>
+      <button class="btn-gradient live-results-refresh" id="refreshLiveResults" type="button">Refresh now</button>
+    </div>`;
+  const bindRefresh = () => {
+    document.getElementById("refreshLiveResults").onclick = refreshLiveDashboard;
+  };
   let results;
   try {
     const data = await api("/admin/results", { token: adminToken });
     results = data.results || [];
   } catch (_err) {
-    el.innerHTML = `<h3 class="panel-heading">Live results</h3><p class="error-text">Couldn't load results.</p>`;
+    el.innerHTML = `${header("Update failed")}<p class="error-text">Couldn't load results.</p>`;
+    bindRefresh();
     return;
   }
+  const updatedAt = timeStamp(new Date());
   if (!results.length) {
-    el.innerHTML = `<h3 class="panel-heading">Live results</h3><p class="panel-note">No positions set up yet. Add candidates first.</p>`;
+    el.innerHTML = `${header(updatedAt)}<p class="panel-note">No positions set up yet. Add candidates first.</p>`;
+    bindRefresh();
     return;
   }
-  el.innerHTML = `<h3 class="panel-heading">Live results</h3>` + results.map((race) => {
+  el.innerHTML = header(updatedAt) + results.map((race) => {
     const totalVotes = race.candidates.reduce((sum, candidate) => sum + candidate.votes, 0);
     return `
       <div class="results-row">
@@ -888,6 +1509,7 @@ async function renderResultsPanel() {
         })).join("")}
       </div>`;
   }).join("");
+  bindRefresh();
 }
 
 /* ---- students: per-block summary cards + collapsible full roster ---- */
