@@ -672,7 +672,6 @@ let adminProfile = {
   picture: "",
 };
 let adminProfileOwner = "";
-let signedOutAdmin = null;
 let profilePictureDraft = "";
 
 function openAdminDashboard(admin, initialTab = "votedesk") {
@@ -766,13 +765,12 @@ document.getElementById("adminLogout").onclick = () => {
     dashboardRefreshInterval = null;
   }
   closeTopbarMenus();
-  signedOutAdmin = currentAdmin || { name: adminProfile.name, username: adminProfile.username, email: adminProfile.email, role: "admin" };
   adminSection.classList.add("hidden");
-  document.getElementById("signedOutScreen").classList.remove("hidden");
   clearAdminToken();
   sessionStorage.removeItem(ADMIN_SESSION_KEY);
   sessionStorage.removeItem(ADMIN_TAB_KEY);
   currentAdmin = null;
+  renderEntryStep();
 };
 
 function switchAdminTab(tab) {
@@ -1927,11 +1925,6 @@ document.getElementById("saveProfile").addEventListener("click", async () => {
   }
 });
 
-document.getElementById("returnToDashboard").addEventListener("click", () => {
-  document.getElementById("signedOutScreen").classList.add("hidden");
-  currentAdmin = signedOutAdmin || { name: adminProfile.name, username: adminProfile.username, email: adminProfile.email, role: "admin" };
-  openAdminDashboard(currentAdmin, "votedesk");
-});
 
 /* ---- dashboard: stats + election status toggle + live results ---- */
 let dashboardRefreshInterval = null;
