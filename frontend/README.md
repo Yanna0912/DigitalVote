@@ -48,7 +48,12 @@ up for admin access" link, or an existing admin can add one from the
 
 The admin console includes Dashboard, Live Result, Students, Candidates,
 QR Code, and Staff tabs. Staff accounts appear in the Staff list, and
-notifications are available from the top-bar bell. Use Dashboard to create a saved election
+notifications are available from the top-bar bell. Use the election dashboard's
+Staff button to assign staff to, or remove staff from, the selected election.
+The list is scoped to that election; assignments remain associated with
+archived elections. Demo elections show fictional, read-only sample staff so
+the dashboard layout can be previewed without a backend assignment.
+Use Dashboard to create a saved election
 from a CSV voter list (`name, block, email`) and candidate lists; each
 candidate name must uniquely match a voter. Open and close voting from the
 selected election dashboard. Do not use the sample list for a live election:

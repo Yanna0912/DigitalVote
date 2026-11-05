@@ -28,6 +28,7 @@ function staffCanAccess(req) {
     "/api/admin/elections",
   ]);
   if (req.method === "GET" && staffGetRoutes.has(path)) return true;
+  if (req.method === "PUT" && path === "/api/admin/profile") return true;
   if (req.method === "GET" && /^\/api\/admin\/elections\/[^/]+$/.test(path)) return true;
   if (req.method === "POST" && [
     "/api/admin/students",

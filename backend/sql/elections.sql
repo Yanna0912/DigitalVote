@@ -22,6 +22,15 @@ create unique index if not exists idx_elections_year_name_unique
   on elections (year, lower(btrim(name)));
 create index if not exists idx_elections_date on elections (election_date desc);
 
+create table if not exists election_staff (
+  election_id uuid not null references elections(id) on delete cascade,
+  staff_id    uuid not null references admins(id) on delete cascade,
+  assigned_by uuid references admins(id) on delete set null,
+  created_at  timestamptz not null default now(),
+  primary key (election_id, staff_id)
+);
+create index if not exists idx_election_staff_staff_id on election_staff (staff_id);
+
 create table if not exists election_voters (
   id                    uuid primary key default gen_random_uuid(),
   election_id           uuid not null references elections(id) on delete cascade,
@@ -85,6 +94,7 @@ create index if not exists idx_election_votes_election_position
   on election_votes (election_id, position);
 
 alter table elections enable row level security;
+alter table election_staff enable row level security;
 alter table election_voters enable row level security;
 alter table election_candidates enable row level security;
 alter table election_votes enable row level security;

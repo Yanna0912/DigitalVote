@@ -44,7 +44,7 @@ router.post("/verify-otp", asyncHandler(async (req, res) => {
     targetType: "admin",
     targetId: admin.id,
   });
-  return res.json({ token, admin: { id: admin.id, name: admin.name, email: admin.email, username: admin.username, party_list: admin.party_list, role: admin.role || "admin" } });
+  return res.json({ token, admin: { id: admin.id, name: admin.name, email: admin.email, username: admin.username, party_list: admin.party_list, role: admin.role || "admin", profile_picture: admin.profile_picture || null } });
 
   
 }));

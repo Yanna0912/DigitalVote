@@ -683,7 +683,7 @@ function openAdminDashboard(admin, initialTab = "votedesk") {
       name: admin.name || "Erwin Gidoc",
       username: admin.username || "erwin.gidoc",
       email: admin.email || "admin@votedesk.example",
-      picture: "",
+      picture: admin.profile_picture || "",
     };
   }
   updateAdminProfileDisplay();
@@ -726,6 +726,29 @@ function closeTopbarMenus() {
   document.getElementById("accountButton").setAttribute("aria-expanded", "false");
 }
 
+function currentAdminElection() {
+  const elections = voteDeskPersistentElections;
+  return elections.find((election) => String(election.status || "").toLowerCase() === "open" || election.votingOpen)
+    || elections.find((election) => String(election.status || "").toLowerCase() === "upcoming")
+    || elections[0]
+    || null;
+}
+
+function currentAdminElectionIsPersistent() {
+  return voteDeskIsPersistent(currentAdminElection());
+}
+
+function updateAdminElectionLabel(tab = sessionStorage.getItem(ADMIN_TAB_KEY)) {
+  const isElectionDashboard = tab === "votedesk";
+  const election = isElectionDashboard ? voteDeskElection() : currentAdminElection();
+  const label = document.getElementById("adminElectionName");
+  const sampleBadge = document.getElementById("adminElectionSample");
+  if (!label) return;
+  label.textContent = election?.title || election?.name || "Current Election";
+  label.title = label.textContent;
+  sampleBadge?.classList.toggle("hidden", !isElectionDashboard || !election?.sample);
+}
+
 function refreshAll() {
   renderStatRow();
   renderResultsPanel();
@@ -758,6 +781,7 @@ function switchAdminTab(tab) {
   const validTabs = isStaffAccount() ? staffTabs : adminTabs;
   const activeTab = validTabs.includes(tab) ? tab : "dashboard";
   sessionStorage.setItem(ADMIN_TAB_KEY, activeTab);
+  updateAdminElectionLabel(activeTab);
   document.querySelectorAll(".sidebar-link").forEach((button) => {
     button.classList.toggle("hidden", isStaffAccount() && !staffTabs.includes(button.dataset.admintab));
   });
@@ -796,6 +820,7 @@ function voteDeskMakeElection(config) {
     ballotsCast: 0,
     blankBallots: 0,
     voters: [],
+    staff: config.staff || [],
     sample: config.sample !== false,
   };
   election.positions = config.positions.map((position, positionIndex) => ({
@@ -869,6 +894,10 @@ function voteDeskPosition(name, candidates) {
 voteDeskElections = [
   voteDeskMakeElection({
     id: "election-2025", title: "2025 General Election", year: 2025, status: "Certified", date: "October 21, 2025",
+    staff: [
+      { id: "demo-2025-staff-1", name: "Jordan Reyes", username: "jordan.reyes", email: "jordan.reyes@example.invalid", assignedAt: "2025-09-10T09:00:00Z" },
+      { id: "demo-2025-staff-2", name: "Taylor Santos", username: "taylor.santos", email: "taylor.santos@example.invalid", assignedAt: "2025-09-12T09:00:00Z" },
+    ],
     blocks: [{ registered: 126, turnout: 103 }, { registered: 108, turnout: 88 }, { registered: 143, turnout: 121 }, { registered: 97, turnout: 78 }, { registered: 119, turnout: 101 }, { registered: 132, turnout: 110 }],
     positions: [
       voteDeskPosition("President", [["Amara Villanueva", "Bagong Simula", 43], ["Luis Mendoza", "Unity Bloc", 35], ["Nina Ramos", "Independent", 22]]),
@@ -876,7 +905,10 @@ voteDeskElections = [
     ],
   }),
   voteDeskMakeElection({
-    id: "election-2022", title: "2022 General Election", year: 2022, status: "Certified", date: "October 18, 2022",
+    id: "election-2024", title: "2024 General Election", year: 2024, status: "Certified", date: "October 18, 2024",
+    staff: [
+      { id: "demo-2024-staff-1", name: "Morgan Cruz", username: "morgan.cruz", email: "morgan.cruz@example.invalid", assignedAt: "2024-09-08T09:00:00Z" },
+    ],
     blocks: [{ registered: 112, turnout: 92 }, { registered: 95, turnout: 76 }, { registered: 128, turnout: 108 }, { registered: 104, turnout: 83 }, { registered: 117, turnout: 98 }, { registered: 121, turnout: 96 }],
     positions: [
       voteDeskPosition("President", [["Mateo Garcia", "Unity Bloc", 40], ["Leah Bautista", "Bagong Simula", 37], ["Andre Flores", "Independent", 23]]),
@@ -885,6 +917,10 @@ voteDeskElections = [
   }),
   voteDeskMakeElection({
     id: "election-2019", title: "2019 General Election", year: 2019, status: "Archived", date: "October 15, 2019",
+    staff: [
+      { id: "demo-2019-staff-1", name: "Avery Garcia", username: "avery.garcia", email: "avery.garcia@example.invalid", assignedAt: "2019-09-06T09:00:00Z" },
+      { id: "demo-2019-staff-2", name: "Casey Flores", username: "casey.flores", email: "casey.flores@example.invalid", assignedAt: "2019-09-09T09:00:00Z" },
+    ],
     blocks: [{ registered: 98, turnout: 73 }, { registered: 114, turnout: 91 }, { registered: 106, turnout: 84 }, { registered: 89, turnout: 67 }, { registered: 123, turnout: 101 }, { registered: 109, turnout: 80 }],
     positions: [
       voteDeskPosition("President", [["Maya Dela Cruz", "Bagong Simula", 45], ["Caleb Ramos", "Independent", 31], ["Isla Santos", "Unity Bloc", 24]]),
@@ -895,6 +931,10 @@ voteDeskElections = [
 
 let voteDeskPersistentElections = [];
 const voteDeskElectionDetails = new Map();
+let voteDeskElectionStaff = [];
+let voteDeskElectionStaffAccounts = [];
+let voteDeskElectionStaffError = "";
+let voteDeskElectionStaffLoading = false;
 let voteDeskLoadError = "";
 let voteDeskLoading = false;
 let voteDeskLoadPromise = null;
@@ -914,8 +954,6 @@ function loadVoteDeskElections() {
   voteDeskLoadPromise = (async () => {
     voteDeskLoading = true;
     const storedElectionId = sessionStorage.getItem("ccdi_votedesk_election_id");
-    document.getElementById("openAddStudentModal").classList.toggle("hidden", Boolean(storedElectionId));
-    document.getElementById("openAddCandidateModal").classList.toggle("hidden", Boolean(storedElectionId));
     voteDeskLoadError = "";
     renderVoteDeskDashboard();
     try {
@@ -941,11 +979,13 @@ function loadVoteDeskElections() {
         voteDeskSelectedId = voteDeskElections[0].id;
         sessionStorage.removeItem("ccdi_votedesk_election_id");
       }
+      updateAdminElectionLabel();
       if (voteDeskIsPersistent()) await loadVoteDeskElectionDetails(voteDeskSelectedId);
     } catch (error) {
       voteDeskLoadError = error.error || "Couldn't load saved elections.";
     } finally {
       voteDeskLoading = false;
+      updateAdminElectionLabel();
       renderVoteDeskDashboard();
     }
     await refreshSelectedElectionPanels();
@@ -973,10 +1013,9 @@ async function selectVoteDeskElection(electionId) {
   studentStatusFilter = "All";
   studentRosterPage = 1;
   sessionStorage.setItem("ccdi_votedesk_election_id", electionId);
-  document.getElementById("openAddStudentModal").classList.toggle("hidden", voteDeskIsPersistent());
-  document.getElementById("openAddCandidateModal").classList.toggle("hidden", voteDeskIsPersistent());
   voteDeskDropdownOpen = false;
   voteDeskLoadError = "";
+  updateAdminElectionLabel();
   renderVoteDeskDashboard();
   if (voteDeskIsPersistent()) {
     try {
@@ -991,13 +1030,14 @@ async function selectVoteDeskElection(electionId) {
 }
 
 function electionScopedAdminPath(path) {
-  if (!voteDeskIsPersistent()) return path;
+  const election = currentAdminElection();
+  if (!voteDeskIsPersistent(election)) return path;
   const separator = path.includes("?") ? "&" : "?";
-  return `${path}${separator}electionId=${encodeURIComponent(voteDeskElection().id)}`;
+  return `${path}${separator}electionId=${encodeURIComponent(election.id)}`;
 }
 
 async function refreshSelectedElectionPanels() {
-  const isPersistent = voteDeskIsPersistent();
+  const isPersistent = currentAdminElectionIsPersistent();
   document.getElementById("openAddStudentModal").classList.toggle("hidden", isPersistent);
   document.getElementById("openAddCandidateModal").classList.toggle("hidden", isPersistent);
   await Promise.all([
@@ -1010,8 +1050,7 @@ async function refreshSelectedElectionPanels() {
   if (voteDeskModal.type && voteDeskModal.type !== "create") renderVoteDeskDialog();
 }
 
-async function updateVoteDeskVoting(open) {
-  const election = voteDeskElection();
+async function updateVoteDeskVoting(open, election = voteDeskElection()) {
   try {
     const data = await api(`/admin/elections/${encodeURIComponent(election.id)}/voting-open`, {
       method: "POST",
@@ -1023,6 +1062,7 @@ async function updateVoteDeskVoting(open) {
     voteDeskPersistentElections = voteDeskPersistentElections.map((item) =>
       item.id === election.id ? { ...item, ...data.election, ...refreshed, persisted: true } : item
     );
+    updateAdminElectionLabel();
     renderVoteDeskDashboard();
     await refreshSelectedElectionPanels();
   } catch (error) {
@@ -1124,20 +1164,23 @@ function renderVoteDeskDashboard() {
 
   root.innerHTML = `
     <header class="vd-page-header">
-      <div class="vd-page-title"><span class="vd-eyebrow">Election dashboard ${election.sample ? '<span class="vd-sample-chip">SAMPLE DATA</span>' : ""}</span><h1>${escapeHtml(election.title)}</h1>
+      <div class="vd-page-title">
         <div class="vd-meta"><span class="vd-status vd-status-${voteDeskStatusClass(election.status)}">${escapeHtml(election.status)}</span>${election.votingOpen ? '<span class="vd-status vd-status-winner">Voting open</span>' : ""}<span>${escapeHtml(election.date)}</span><span>${election.ballotsCast.toLocaleString()} ballots cast</span></div>
       </div>
-      ${voteDeskIsPersistent(election) ? `<div class="vd-election-management">${election.status !== "Certified" && election.status !== "Archived" ? `<button class="vd-button vd-button-primary" type="button" data-vd-action="toggle-voting">${election.votingOpen ? "Close & archive" : "Open voting"}</button>` : ""}${!election.votingOpen && election.status !== "Certified" && election.status !== "Archived" ? `<button class="vd-button" type="button" data-vd-action="certify-election">Certify results</button>` : ""}${!election.votingOpen && election.status === "Certified" ? `<button class="vd-button" type="button" data-vd-action="archive-election">Archive election</button>` : ""}</div>` : ""}
-    </header>
-    <div class="vd-toolbar">
-      <div class="vd-election-picker">
-        <button class="vd-button vd-button-primary" type="button" data-vd-action="toggle-elections" aria-expanded="${voteDeskDropdownOpen}">${escapeHtml(election.title)} <span aria-hidden="true">&#9662;</span></button>
-        ${voteDeskDropdownOpen ? `<div class="vd-election-menu" role="menu">${currentElections.length ? `<p class="vd-election-group-title">Elections</p>${currentElections.map(electionOption).join("")}` : ""}${archivedElections.length ? `<div class="vd-election-menu-divider"></div><p class="vd-election-group-title">Archived</p>${archivedElections.map(electionOption).join("")}` : ""}${voteDeskLoadError ? `<p class="vd-load-error">${escapeHtml(voteDeskLoadError)}</p>` : ""}<div class="vd-election-menu-divider"></div><button class="vd-create-election-row" type="button" data-vd-action="create-election">+ Create new election</button></div>` : ""}
+      <div class="vd-page-actions">
+        <div class="vd-toolbar">
+          <div class="vd-election-picker">
+            <button class="vd-button vd-button-primary" type="button" data-vd-action="toggle-elections" aria-expanded="${voteDeskDropdownOpen}">${escapeHtml(election.title)} <span aria-hidden="true">&#9662;</span></button>
+            ${voteDeskDropdownOpen ? `<div class="vd-election-menu" role="menu">${currentElections.length ? `<p class="vd-election-group-title">Elections</p>${currentElections.map(electionOption).join("")}` : ""}${archivedElections.length ? `<div class="vd-election-menu-divider"></div><p class="vd-election-group-title">Archived</p>${archivedElections.map(electionOption).join("")}` : ""}${voteDeskLoadError ? `<p class="vd-load-error">${escapeHtml(voteDeskLoadError)}</p>` : ""}<div class="vd-election-menu-divider"></div><button class="vd-create-election-row" type="button" data-vd-action="create-election">+ Create new election</button></div>` : ""}
+          </div>
+          <button class="vd-button" type="button" data-vd-action="participants">Participants</button>
+          <button class="vd-button" type="button" data-vd-action="candidates">Candidates</button>
+          <button class="vd-button" type="button" data-vd-action="votes">Votes by block</button>
+          ${(voteDeskIsPersistent(election) || election.sample) && !isStaffAccount() ? `<button class="vd-button" type="button" data-vd-action="staff">Staff</button>` : ""}
+        </div>
+        ${voteDeskIsPersistent(election) ? `<div class="vd-election-management">${election.status !== "Certified" && election.status !== "Archived" ? `<button class="vd-button vd-button-primary" type="button" data-vd-action="toggle-voting">${election.votingOpen ? "Close & archive" : "Open voting"}</button>` : ""}${!election.votingOpen && election.status !== "Certified" && election.status !== "Archived" ? `<button class="vd-button" type="button" data-vd-action="certify-election">Certify results</button>` : ""}${!election.votingOpen && election.status === "Certified" ? `<button class="vd-button" type="button" data-vd-action="archive-election">Archive election</button>` : ""}</div>` : ""}
       </div>
-      <button class="vd-button" type="button" data-vd-action="participants">Participants</button>
-      <button class="vd-button" type="button" data-vd-action="candidates">Candidates</button>
-      <button class="vd-button" type="button" data-vd-action="votes">Votes by block</button>
-    </div>
+    </header>
     <section class="vd-summary-grid" aria-label="Election summary">
       <article class="vd-summary-card"><span>Registered voters</span><strong>${registered.toLocaleString()}</strong><small>Across ${election.blocks.length} blocks</small></article>
       <article class="vd-summary-card"><span>Voted</span><strong>${voted.toLocaleString()}</strong><small>${turnout}% turnout</small></article>
@@ -1170,6 +1213,9 @@ voteDeskDashboard.addEventListener("click", (event) => {
     openVoteDeskDialog("candidates");
   } else if (action === "votes") {
     openVoteDeskDialog("votes");
+  } else if (action === "staff") {
+    openVoteDeskDialog("staff");
+    loadVoteDeskElectionStaff(voteDeskElection().id);
   } else if (action === "create-election") {
     voteDeskDropdownOpen = false;
     renderVoteDeskDashboard();
@@ -1238,7 +1284,90 @@ function renderVoteDeskDialog() {
   if (voteDeskModal.type === "participants") renderVoteDeskParticipants(election);
   if (voteDeskModal.type === "candidates") renderVoteDeskCandidates(election);
   if (voteDeskModal.type === "votes") renderVoteDeskVotes(election);
+  if (voteDeskModal.type === "staff") renderVoteDeskElectionStaff(election);
   if (voteDeskModal.type === "create") renderVoteDeskCreate();
+}
+
+async function loadVoteDeskElectionStaff(electionId) {
+  voteDeskElectionStaff = [];
+  voteDeskElectionStaffAccounts = [];
+  voteDeskElectionStaffError = "";
+  voteDeskElectionStaffLoading = true;
+  voteDeskModal.staffElectionId = electionId;
+  const demoElection = voteDeskElections.find((election) => election.id === electionId);
+  if (demoElection) {
+    voteDeskElectionStaff = demoElection.staff || [];
+    voteDeskElectionStaffLoading = false;
+    renderVoteDeskDialog();
+    return;
+  }
+  renderVoteDeskDialog();
+  try {
+    const [data, adminData] = await Promise.all([
+      api(`/admin/elections/${encodeURIComponent(electionId)}/staff`, { token: adminToken }),
+      api("/admin/admins", { token: adminToken }),
+    ]);
+    if (voteDeskModal.type !== "staff" || voteDeskModal.staffElectionId !== electionId) return;
+    voteDeskElectionStaff = data.staff || [];
+    voteDeskElectionStaffAccounts = (adminData.admins || []).filter((account) => account.role === "staff");
+  } catch (error) {
+    if (voteDeskModal.type !== "staff" || voteDeskModal.staffElectionId !== electionId) return;
+    voteDeskElectionStaffError = error.error || "Couldn't load staff assignments.";
+  } finally {
+    if (voteDeskModal.type === "staff" && voteDeskModal.staffElectionId === electionId) {
+      voteDeskElectionStaffLoading = false;
+      renderVoteDeskDialog();
+    }
+  }
+}
+
+function renderVoteDeskElectionStaff(election) {
+  const demoElection = !voteDeskIsPersistent(election);
+  const assignedIds = new Set(voteDeskElectionStaff.map((staff) => staff.id));
+  const availableStaff = voteDeskElectionStaffAccounts.filter((staff) => !assignedIds.has(staff.id));
+  const renderStaffRow = (staff) => `<article class="vd-staff-assignment">
+        <div><strong>${escapeHtml(staff.name)}</strong><span>${escapeHtml(staff.username)} · ${escapeHtml(staff.email)}</span>${staff.assignedAt ? `<small>Assigned ${escapeHtml(new Date(staff.assignedAt).toLocaleDateString())}</small>` : ""}</div>
+        ${demoElection ? "" : `<button class="vd-button vd-staff-remove" type="button" data-vd-action="remove-staff" data-staff-id="${escapeHtml(staff.id)}" aria-label="Remove ${escapeHtml(staff.name)} from this election">Remove</button>`}
+      </article>`;
+  voteDeskDialogContent.innerHTML = `${voteDeskDialogHeader("Staff assigned to election", election.title)}
+    ${demoElection ? `<p class="vd-staff-scope">Sample staff data for preview only. These aren't real accounts or assignments.</p>` : `<p class="vd-staff-scope">Assignments are specific to this election. Staff assigned to other years won't appear here.</p>`}
+    ${voteDeskElectionStaffLoading ? `<p class="vd-loading-state">Loading staff accounts…</p>` : ""}
+    ${voteDeskElectionStaffError ? `<p class="vd-alert" role="alert">${escapeHtml(voteDeskElectionStaffError)} <button class="vd-button" type="button" data-vd-action="retry-staff">Try again</button></p>` : ""}
+    ${!voteDeskElectionStaffLoading && !voteDeskElectionStaffError ? `
+      ${demoElection ? "" : `<form class="vd-staff-assign-form">
+        <label for="vdStaffSelect">Assign a staff account</label>
+        <div>
+          <select id="vdStaffSelect" ${availableStaff.length ? "" : "disabled"}>
+            <option value="">${availableStaff.length ? "Select staff account" : "No unassigned staff accounts"}</option>
+            ${availableStaff.map((staff) => `<option value="${escapeHtml(staff.id)}">${escapeHtml(staff.name)} · ${escapeHtml(staff.username)}</option>`).join("")}
+          </select>
+          <button class="vd-button vd-button-primary" type="submit" ${availableStaff.length ? "" : "disabled"}>Assign</button>
+        </div>
+      </form>`}
+      <div class="vd-staff-list">${voteDeskElectionStaff.length ? voteDeskElectionStaff.map(renderStaffRow).join("") : `<p class="vd-empty-state">No staff have been assigned to this election.</p>`}</div>` : ""}`;
+}
+
+async function updateVoteDeskElectionStaff(method, staffId) {
+  const electionId = voteDeskModal.staffElectionId;
+  voteDeskElectionStaffError = "";
+  voteDeskElectionStaffLoading = true;
+  renderVoteDeskDialog();
+  try {
+    await api(`/admin/elections/${encodeURIComponent(electionId)}/staff${method === "DELETE" ? `/${encodeURIComponent(staffId)}` : ""}`, {
+      method,
+      token: adminToken,
+      ...(method === "POST" ? { body: { staffId } } : {}),
+    });
+  } catch (error) {
+    if (voteDeskModal.type !== "staff" || voteDeskModal.staffElectionId !== electionId) return;
+    voteDeskElectionStaffError = error.error || "Couldn't update staff assignments.";
+    voteDeskElectionStaffLoading = false;
+    renderVoteDeskDialog();
+    return;
+  }
+  if (voteDeskModal.type === "staff" && voteDeskModal.staffElectionId === electionId) {
+    await loadVoteDeskElectionStaff(electionId);
+  }
 }
 
 function renderVoteDeskParticipants(election) {
@@ -1448,6 +1577,7 @@ async function voteDeskCreateElection() {
     studentStatusFilter = "All";
     studentRosterPage = 1;
     sessionStorage.setItem("ccdi_votedesk_election_id", voteDeskSelectedId);
+    updateAdminElectionLabel();
     voteDeskElectionDetails.delete(voteDeskSelectedId);
     voteDeskDropdownOpen = false;
     closeVoteDeskDialog();
@@ -1470,7 +1600,11 @@ voteDeskDialogContent.addEventListener("click", (event) => {
   const button = event.target.closest("[data-vd-action]");
   if (!button) return;
   const action = button.dataset.vdAction;
-  if (action === "open-block") {
+  if (action === "remove-staff") {
+    if (window.confirm("Remove this staff member from the selected election?")) {
+      updateVoteDeskElectionStaff("DELETE", button.dataset.staffId);
+    }
+  } else if (action === "open-block") {
     voteDeskModal.block = button.dataset.block;
     voteDeskModal.filter = "All";
     voteDeskModal.page = 1;
@@ -1491,6 +1625,8 @@ voteDeskDialogContent.addEventListener("click", (event) => {
   } else if (action === "next-page") {
     voteDeskModal.page++;
     renderVoteDeskDialog();
+  } else if (action === "retry-staff") {
+    loadVoteDeskElectionStaff(voteDeskModal.staffElectionId);
   } else if (action === "vote-position") {
     voteDeskModal.position = button.dataset.position;
     renderVoteDeskDialog();
@@ -1529,6 +1665,13 @@ voteDeskDialogContent.addEventListener("click", (event) => {
   }
 });
 
+voteDeskDialogContent.addEventListener("submit", (event) => {
+  if (!event.target.matches(".vd-staff-assign-form")) return;
+  event.preventDefault();
+  const staffId = document.getElementById("vdStaffSelect").value;
+  if (staffId) updateVoteDeskElectionStaff("POST", staffId);
+});
+
 voteDeskDialogContent.addEventListener("input", (event) => {
   if (event.target.matches('[name="name"]')) voteDeskDraft.name = event.target.value;
   if (event.target.matches('[name="year"]')) voteDeskDraft.year = event.target.value;
@@ -1564,12 +1707,12 @@ voteDeskDialogContent.addEventListener("submit", async (event) => {
 });
 
 const dashboardNotifications = [
-  { title: "Credentials generated", message: "Usernames and passwords generated for 412 voters in Block C.", time: "5 minutes ago", type: "success", unread: true },
-  { title: "Low turnout in Block D", message: "Turnout is 66%, the lowest of all blocks.", time: "22 minutes ago", type: "warning", unread: true },
-  { title: "Voter list uploaded", message: "CSV sorted into 4 blocks with 192 voters.", time: "1 hour ago", type: "info", unread: true },
-  { title: "Failed sign-in attempts", message: "3 failed attempts on a voter account. It was locked for 15 minutes.", time: "3 hours ago", type: "warning", unread: false },
-  { title: "Election certified", message: "2025 General Election results certified.", time: "Yesterday", type: "success", unread: false },
-  { title: "Candidate added", message: "A candidate was added to the President ballot.", time: "2 days ago", type: "info", unread: false },
+  { title: "Current election created", message: "A new election was created and selected in the Dashboard.", time: "Just now", type: "success", unread: true },
+  { title: "Voters added", message: "The voter list was uploaded with 192 voters across 4 blocks.", time: "5 minutes ago", type: "info", unread: true },
+  { title: "Candidates added", message: "Candidates were added to the election ballot.", time: "12 minutes ago", type: "info", unread: true },
+  { title: "Credentials generated", message: "Usernames and passwords generated for 192 voters.", time: "20 minutes ago", type: "success", unread: false },
+  { title: "Voting opened", message: "Voting is now open for the current election.", time: "1 hour ago", type: "success", unread: false },
+  { title: "Election setup complete", message: "Voters and candidates are ready for the election.", time: "Yesterday", type: "info", unread: false },
 ];
 let notificationFilter = "all";
 
@@ -1719,7 +1862,7 @@ document.getElementById("removeProfilePicture").addEventListener("click", () => 
   document.getElementById("removeProfilePicture").classList.add("hidden");
   document.getElementById("profilePictureInput").value = "";
 });
-document.getElementById("saveProfile").addEventListener("click", () => {
+document.getElementById("saveProfile").addEventListener("click", async () => {
   const name = document.getElementById("profileName").value.trim();
   const username = document.getElementById("profileUsername").value.trim();
   const email = document.getElementById("profileEmail").value.trim();
@@ -1729,7 +1872,7 @@ document.getElementById("saveProfile").addEventListener("click", () => {
   const errors = [];
   if (!name) errors.push("Full name is required.");
   if (!/^[A-Za-z0-9._-]{3,30}$/.test(username)) errors.push("Username must be 3 to 30 characters using letters, numbers, dots, dashes or underscores.");
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Enter a valid email address or leave it empty.");
+  if (!/^[^\s@]+@gmail\.com$/i.test(email)) errors.push("Enter a valid Gmail address.");
   const changingPassword = Boolean(currentPassword || newPassword || confirmation);
   if (changingPassword && !currentPassword) errors.push("Enter your current password to change it.");
   if (changingPassword && newPassword.length < 8) errors.push("New password must be at least 8 characters.");
@@ -1744,17 +1887,44 @@ document.getElementById("saveProfile").addEventListener("click", () => {
     error.classList.remove("hidden");
     return;
   }
-  adminProfile = { name, username, email, picture: profilePictureDraft };
-  if (currentAdmin) {
-    currentAdmin = { ...currentAdmin, name, username, email };
+  const saveButton = document.getElementById("saveProfile");
+  saveButton.disabled = true;
+  saveButton.textContent = "Saving…";
+  try {
+    const data = await api("/admin/profile", {
+      method: "PUT",
+      token: adminToken,
+      body: {
+        name,
+        username,
+        email,
+        currentPassword,
+        newPassword,
+        profilePicture: profilePictureDraft || null,
+      },
+    });
+    currentAdmin = data.admin;
     cacheAdminSession(currentAdmin);
+    adminProfile = {
+      name: data.admin.name,
+      username: data.admin.username,
+      email: data.admin.email,
+      picture: data.admin.profile_picture || "",
+    };
+    profilePictureDraft = adminProfile.picture;
+    updateAdminProfileDisplay();
+    ["profileCurrentPassword", "profileNewPassword", "profileConfirmPassword"].forEach((id) => { document.getElementById(id).value = ""; });
+    error.classList.add("hidden");
+    success.textContent = changingPassword ? "Profile saved and password changed." : "Profile saved.";
+    success.classList.remove("hidden");
+    document.getElementById("removeProfilePicture").classList.toggle("hidden", !profilePictureDraft);
+  } catch (saveError) {
+    error.textContent = saveError.error || "Couldn't save your profile.";
+    error.classList.remove("hidden");
+  } finally {
+    saveButton.disabled = false;
+    saveButton.textContent = "Save changes";
   }
-  updateAdminProfileDisplay();
-  ["profileCurrentPassword", "profileNewPassword", "profileConfirmPassword"].forEach((id) => { document.getElementById(id).value = ""; });
-  error.classList.add("hidden");
-  success.textContent = changingPassword ? "Profile saved and password changed." : "Profile saved.";
-  success.classList.remove("hidden");
-  document.getElementById("removeProfilePicture").classList.toggle("hidden", !profilePictureDraft);
 });
 
 document.getElementById("returnToDashboard").addEventListener("click", () => {
@@ -1816,7 +1986,7 @@ async function renderStatRow() {
       </div>`
     : `<button class="stat-card status-card ${open ? "status-open" : "status-closed"}" id="statusCard">
         <span><span class="status-dot"></span><strong>${open ? "Voting OPEN" : "Voting CLOSED"}</strong></span>
-        <span class="status-toggle-label">Click to ${open ? (voteDeskIsPersistent() ? "close and archive" : "close") : "open"} voting</span>
+        <span class="status-toggle-label">Click to ${open ? (currentAdminElectionIsPersistent() ? "close and archive" : "close") : "open"} voting</span>
       </button>`;
 
   const chartTotal = Math.max(1, stats.total);
@@ -1833,8 +2003,8 @@ async function renderStatRow() {
 
   if (!isStaffAccount()) document.getElementById("statusCard").onclick = async () => {
     try {
-      if (voteDeskIsPersistent()) {
-        await updateVoteDeskVoting(!open);
+      if (currentAdminElectionIsPersistent()) {
+        await updateVoteDeskVoting(!open, currentAdminElection());
       } else {
         await api("/admin/settings/voting-open", { method: "POST", token: adminToken, body: { open: !open } });
         renderStatRow();
@@ -1847,7 +2017,7 @@ async function renderStatRow() {
 
 async function renderResultsPanel() {
   const el = document.getElementById("resultsCard");
-  const electionName = voteDeskIsPersistent() ? voteDeskElection().title : "";
+  const electionName = currentAdminElectionIsPersistent() ? currentAdminElection().title : "";
   const header = (updatedAt = "Waiting for results…") => `
     <div class="live-results-header">
       <div>
@@ -1904,7 +2074,7 @@ let studentRosterPage = 1;
 let studentRosterSearch = "";
 
 function currentRosterElectionId() {
-  return voteDeskIsPersistent() ? voteDeskElection().id : "";
+  return currentAdminElectionIsPersistent() ? currentAdminElection().id : "";
 }
 
 async function loadRoster() {
@@ -1975,8 +2145,9 @@ async function renderBlockGrid() {
     registered: cachedRoster.filter((student) => student.registered).length,
     voted: cachedRoster.filter((student) => student.voted).length,
   };
-  const memberLabel = voteDeskIsPersistent() ? "registered" : "students";
-  summary.innerHTML = `${voteDeskStat(voteDeskIsPersistent() ? "Registered voters" : "Total students", totals.total.toLocaleString())}${voteDeskStat("Voted", totals.voted.toLocaleString())}${voteDeskStat("Credentials generated", totals.registered.toLocaleString())}`;
+  const currentElectionPersistent = currentAdminElectionIsPersistent();
+  const memberLabel = currentElectionPersistent ? "registered" : "students";
+  summary.innerHTML = `${voteDeskStat(currentElectionPersistent ? "Registered voters" : "Total students", totals.total.toLocaleString())}${voteDeskStat("Voted", totals.voted.toLocaleString())}${voteDeskStat("Credentials generated", totals.registered.toLocaleString())}`;
   const renderBlockCard = (name, counts, allStudents = false) => {
     const turnout = counts.total ? Math.round(counts.voted / counts.total * 100) : 0;
     const label = allStudents ? "All students" : name;
@@ -2025,7 +2196,8 @@ async function renderRosterTable() {
   const start = (studentRosterPage - 1) * 20;
   const shown = sortedRoster.slice(start, start + 20);
   document.getElementById("studentListTitle").textContent = allStudents ? "All students" : selectedRosterBlock;
-  document.getElementById("studentListSubtitle").textContent = `${voteDeskIsPersistent() ? voteDeskElection().title : "Student roster"} · sorted by student name`;
+  const currentElectionPersistent = currentAdminElectionIsPersistent();
+  document.getElementById("studentListSubtitle").textContent = `${currentElectionPersistent ? currentAdminElection().title : "Student roster"} · sorted by student name`;
   document.getElementById("studentStatusFilters").innerHTML = filters.map((filter) =>
     `<button type="button" class="vd-filter ${studentStatusFilter === filter ? "is-active" : ""}" data-student-filter="${escapeHtml(filter)}">${escapeHtml(filter)} <span>${statusCounts[filter]}</span></button>`
   ).join("");
@@ -2039,16 +2211,16 @@ async function renderRosterTable() {
       const hasCredentials = Boolean(student.registered);
       const id = String(student.id_no || "");
       const delivery = student.credentials_delivery || student.credentialDelivery;
-      const credentialLabel = voteDeskIsPersistent()
+      const credentialLabel = currentElectionPersistent
         ? ({ sent: "Sent", failed: "Delivery failed", pending: "Pending", sample: "Sample only" }[delivery] || "Generated")
         : hasCredentials ? "Issued" : "Not issued";
-      const credentialClass = delivery === "sent" || (!voteDeskIsPersistent() && hasCredentials)
+      const credentialClass = delivery === "sent" || (!currentElectionPersistent && hasCredentials)
         ? "vd-status-voted"
-        : delivery === "failed" || (!voteDeskIsPersistent() && !hasCredentials)
+        : delivery === "failed" || (!currentElectionPersistent && !hasCredentials)
           ? "vd-status-no-credentials"
           : "vd-status-pending";
-      const resendButton = voteDeskIsPersistent()
-        ? !voteDeskElection().sample
+      const resendButton = currentElectionPersistent
+        ? !currentAdminElection().sample
           ? `<button class="vd-button vd-resend-button" data-resend-election-credentials="${escapeHtml(encodeURIComponent(id))}" type="button">Resend</button>`
           : "—"
         : hasCredentials
@@ -2077,7 +2249,7 @@ async function renderRosterTable() {
           ? button.dataset.resendElectionCredentials
           : button.dataset.resendCredentials;
         const path = electionResend
-          ? `/admin/elections/${encodeURIComponent(voteDeskElection().id)}/voters/${voterId}/resend-credentials`
+          ? `/admin/elections/${encodeURIComponent(currentAdminElection().id)}/voters/${voterId}/resend-credentials`
           : `/admin/students/${voterId}/resend-credentials`;
         const result = await api(path, { method: "POST", token: adminToken });
         if (electionResend) {
@@ -2160,8 +2332,8 @@ document.getElementById("studentModalTabCsv").onclick = () => {
 };
 
 document.getElementById("addStudentBtn").onclick = async () => {
-  if (voteDeskIsPersistent()) {
-    document.getElementById("rosterError").textContent = "Add students from the selected election's voter list instead.";
+  if (currentAdminElectionIsPersistent()) {
+    document.getElementById("rosterError").textContent = "Add students through the current election's voter list instead.";
     return;
   }
   const errorEl = document.getElementById("rosterError");
@@ -2184,7 +2356,7 @@ document.getElementById("addStudentBtn").onclick = async () => {
 };
 
 document.getElementById("importCsvBtn").onclick = async () => {
-  if (voteDeskIsPersistent()) {
+  if (currentAdminElectionIsPersistent()) {
     document.getElementById("csvError").textContent = "Import voters through Create new election for election-scoped records.";
     return;
   }
@@ -2309,7 +2481,7 @@ candidateStudentSelect.addEventListener("change", () => {
 });
 
 document.getElementById("openAddCandidateModal").onclick = async () => {
-  if (voteDeskIsPersistent()) return;
+  if (currentAdminElectionIsPersistent()) return;
   const errorEl = document.getElementById("candidateRosterError");
   errorEl.textContent = "";
   candidateSearch.value = "";
@@ -2333,8 +2505,8 @@ document.getElementById("openAddCandidateModal").onclick = async () => {
 };
 document.getElementById("closeAddCandidateModal").onclick = () => addCandidateOverlay.classList.remove("show");
 document.getElementById("addCandidateBtn").onclick = async () => {
-  if (voteDeskIsPersistent()) {
-    document.getElementById("candidateRosterError").textContent = "Add candidates when creating an election so they match its voter list.";
+  if (currentAdminElectionIsPersistent()) {
+    document.getElementById("candidateRosterError").textContent = "Candidates are managed from the current election's voter list.";
     return;
   }
   const position = document.getElementById("candPosition").value.trim();

@@ -35,11 +35,95 @@ async function electionIdFromRequest(req, res) {
 router.get("/me", asyncHandler(async (req, res) => {
   const { data: admin, error } = await supabase
     .from("admins")
-    .select("id, name, email, username, role")
+    .select("id, name, email, username, role, profile_picture")
     .eq("id", req.auth.id)
     .maybeSingle();
   if (error || !admin) return res.status(404).json({ error: "Admin account not found." });
   res.json({ admin });
+}));
+
+router.put("/profile", asyncHandler(async (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const username = String(req.body.username || "").trim();
+  const email = String(req.body.email || "").trim();
+  const currentPassword = String(req.body.currentPassword || "");
+  const newPassword = String(req.body.newPassword || "");
+  const profilePicture = req.body.profilePicture;
+
+  if (!name) return res.status(400).json({ error: "Full name is required." });
+  if (!/^[A-Za-z0-9._-]{3,30}$/.test(username)) {
+    return res.status(400).json({ error: "Username must be 3 to 30 characters using letters, numbers, dots, dashes or underscores." });
+  }
+  if (!isGmail(email)) return res.status(400).json({ error: "Please use a Gmail address so admin verification codes can be delivered." });
+  if (newPassword && newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters." });
+  if (newPassword && !currentPassword) return res.status(400).json({ error: "Enter your current password to change it." });
+  if (newPassword && newPassword === currentPassword) return res.status(400).json({ error: "New password must be different from the current password." });
+  if (profilePicture !== undefined && profilePicture !== null) {
+    if (typeof profilePicture !== "string") return res.status(400).json({ error: "Choose a PNG or JPG image." });
+    const imageMatch = profilePicture.match(/^data:image\/(png|jpeg);base64,([A-Za-z0-9+/]+={0,2})$/);
+    if (!imageMatch || Buffer.from(imageMatch[2], "base64").length > 2 * 1024 * 1024) {
+      return res.status(400).json({ error: "The profile picture must be a PNG or JPG image no larger than 2 MB." });
+    }
+  }
+
+  const { data: admin, error: lookupError } = await supabase
+    .from("admins")
+    .select("id, name, username, email, password_hash")
+    .eq("id", req.auth.id)
+    .maybeSingle();
+  if (lookupError) {
+    console.error("[admin] Failed to load profile for update:", lookupError.code, lookupError.message);
+    if (["42703", "PGRST204", "PGRST205"].includes(lookupError.code)) {
+      return res.status(503).json({ error: "The profile picture column is missing. Apply the latest backend/sql/schema.sql in Supabase." });
+    }
+    return res.status(500).json({ error: "Couldn't load your account profile." });
+  }
+  if (!admin) return res.status(404).json({ error: "Admin account not found." });
+
+  if (newPassword && !(await bcrypt.compare(currentPassword, admin.password_hash))) {
+    return res.status(400).json({ error: "Current password is incorrect." });
+  }
+
+  const [{ data: usernameOwner, error: usernameError }, { data: emailOwner, error: emailError }] = await Promise.all([
+    supabase.from("admins").select("id").ilike("username", username).neq("id", admin.id).maybeSingle(),
+    supabase.from("admins").select("id").ilike("email", email).neq("id", admin.id).maybeSingle(),
+  ]);
+  if (usernameError || emailError) return res.status(500).json({ error: "Couldn't check the account details." });
+  if (usernameOwner) return res.status(409).json({ error: "That username is already in use." });
+  if (emailOwner) return res.status(409).json({ error: "That email is already in use." });
+
+  const updates = { name, username, email };
+  if (profilePicture !== undefined) updates.profile_picture = profilePicture;
+  if (newPassword) updates.password_hash = await bcrypt.hash(newPassword, 10);
+  const { data: updatedAdmin, error: updateError } = await supabase
+    .from("admins")
+    .update(updates)
+    .eq("id", admin.id)
+    .select("id, name, email, username, role, profile_picture")
+    .single();
+  if (updateError?.code === "23505") return res.status(409).json({ error: "That username or email is already in use." });
+  if (updateError) {
+    console.error("[admin] Failed to save profile:", updateError.code, updateError.message);
+    if (["42703", "PGRST204", "PGRST205"].includes(updateError.code)) {
+      return res.status(503).json({ error: "The profile picture column is missing. Apply the latest backend/sql/schema.sql in Supabase." });
+    }
+    return res.status(500).json({ error: "Couldn't save your profile." });
+  }
+
+  const changes = [];
+  if (name !== admin.name) changes.push("name");
+  if (username !== admin.username) changes.push("username");
+  if (email !== admin.email) changes.push("email");
+  if (newPassword) changes.push("password");
+  if (profilePicture !== undefined) changes.push("profile_picture");
+  await logActivity(req, {
+    action: "admin.profile_updated",
+    summary: "Updated account profile.",
+    targetType: "admin",
+    targetId: admin.id,
+    details: { fields: changes },
+  });
+  res.json({ admin: updatedAdmin });
 }));
 
 router.get("/activity", asyncHandler(async (req, res) => {

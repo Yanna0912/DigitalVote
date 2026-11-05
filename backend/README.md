@@ -21,9 +21,13 @@ open/closed switch), and CSV roster import.
    can be used once. Resolve duplicate student emails before rerunning if
    index creation reports existing duplicates. It also adds the separate
    admin password-reset OTP table, Admin/Staff account role, and admin
-   activity log. Admins can view credential delivery, account changes,
-   sign-ins, voting status changes, and ballot-submission timestamps from the
-   Activity tab. The log never stores passwords, OTP values, or vote choices.
+   activity log for credential delivery, account changes, sign-ins, voting
+   status changes, and ballot-submission timestamps. The election-specific
+   schema also creates the election-to-staff assignment table, so staff
+   membership remains associated with its election. The log never stores
+   passwords, OTP values, or vote choices. Profile pictures are stored on
+   the admin record. On an existing project, add that column with
+   `ALTER TABLE public.admins ADD COLUMN IF NOT EXISTS profile_picture text;`.
 3. Go to **Project Settings → API** and copy:
    - **Project URL** → `SUPABASE_URL`
    - **service_role key** (not the `anon` key — the backend needs to
@@ -143,21 +147,24 @@ password cannot be shown again after credential delivery.
 
 The initial admin account must be provisioned by a trusted deployment
 operator. After logging in, Admins can add further Admin or Staff accounts
-from **Admin → Admin & Staff accounts → Add account**. Admin accounts must use
-a `@gmail.com` address so login verification codes can be delivered.
+from the **Staff** tab. Admin accounts must use a `@gmail.com` address so
+login verification codes can be delivered.
 
-Admin/Election Officer accounts keep full access. From **Admin → Admin &
-Staff accounts**, an Admin can create a Staff account. Staff can view Live
-Result, Students, Candidates, and Activity, and can manage Students and
-Candidates where the election workflow allows it. Staff cannot manage
-accounts, elections, QR codes, or voting status. Rerun `sql/schema.sql` on an
-existing database to add the `role` column before using Staff accounts.
+Admin/Election Officer accounts keep full access. From the Staff tab, an
+Admin can create a Staff account. Staff can view Live Result, Students, and
+Candidates, and can manage Students and Candidates where the election
+workflow allows it. Staff cannot manage accounts, elections, QR codes, or
+voting status. The election Dashboard's Staff button lets an Admin assign or
+remove staff for the selected saved election and lists only that election's
+assignments. Assignments remain associated with archived elections. Apply
+`sql/schema.sql` or `sql/elections.sql` to create the assignment table.
 
 Elections created in VoteDesk store each election, its voter list, candidates,
-and ballots in separate election-scoped database tables. Live Result, Students,
-and Candidates use the election selected in the Dashboard. Closing voting
-automatically marks that election Archived; archived elections remain saved
-and are grouped in the Dashboard election picker.
+and ballots in separate election-scoped database tables. The Dashboard keeps
+its own selected election; Live Result, Students, and Candidates use the
+current open/upcoming election. Closing voting automatically marks that
+election Archived; archived elections remain saved and are grouped in the
+Dashboard election picker.
 
 If VoteDesk shows **Couldn't load elections**, apply the latest
 `backend/sql/elections.sql` to the Supabase project used by the deployed
@@ -207,11 +214,15 @@ Blueprints (New → Blueprint → point at this repo).
 | GET/POST/DELETE | `/api/admin/candidates` | admin; staff (scoped) | Candidate access |
 | GET | `/api/admin/results` | admin; staff | Vote tally per position |
 | GET | `/api/admin/activity` | admin; staff | Activity log |
+| PUT | `/api/admin/profile` | admin; staff | Save the signed-in account profile and optional password change |
 | GET/POST | `/api/admin/settings/voting-open` | admin | Read/flip the election on-off switch |
 | GET/POST/DELETE | `/api/admin/admins` | admin | Manage Admin and Staff accounts |
 | GET | `/api/admin/stats` | admin; staff | Dashboard summary numbers |
 | GET/POST | `/api/admin/elections` | admin; staff (GET only) | List saved elections / create a voter- and candidate-scoped election |
 | GET | `/api/admin/elections/:id` | admin; staff | Load election, participants, candidates, and block totals |
+| GET | `/api/admin/elections/:id/staff` | admin | List staff assigned to one election |
+| POST | `/api/admin/elections/:id/staff` | admin | Assign a staff account to an election |
+| DELETE | `/api/admin/elections/:id/staff/:staffId` | admin | Remove a staff assignment |
 | POST | `/api/admin/elections/:id/voting-open` | admin | Open or close voting for one election |
 | POST | `/api/admin/elections/:id/status` | admin | Certify or archive an election |
 | POST | `/api/admin/elections/:id/voters/:voterId/resend-credentials` | admin | Issue and email a replacement password for an active election voter |

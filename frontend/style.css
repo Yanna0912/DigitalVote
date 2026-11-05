@@ -755,12 +755,15 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .admin-main::-webkit-scrollbar{display:none;}
 .admin-account-bar{
   position:sticky; top:-14px; z-index:20;
-  display:flex; align-items:center; justify-content:flex-end;
+  display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:12px;
   height:68px; margin:-14px clamp(-40px,-3vw,-16px) 18px;
   padding:0 clamp(16px,3vw,40px); background:#0b1530;
   border-bottom:1px solid rgba(255,255,255,.1);
 }
-.admin-topbar-controls{display:flex; align-items:center; gap:12px;}
+.admin-election-context{display:grid; grid-column:1; justify-self:start; justify-items:start; gap:3px; min-width:0; text-align:left;}
+.admin-election-context>span{display:flex; align-items:center; gap:8px; color:#91b5ff; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;}
+.admin-election-context>strong{max-width:min(58vw,680px); overflow:hidden; color:var(--blue-light); font-size:20px; font-weight:800; line-height:1.15; text-overflow:ellipsis; white-space:nowrap;}
+.admin-topbar-controls{display:flex; grid-column:3; justify-self:end; align-items:center; gap:12px;}
 .admin-popover-anchor{position:relative;}
 .topbar-icon-button,.account-trigger{
   position:relative; display:flex; align-items:center; justify-content:center;
@@ -1027,6 +1030,12 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 /* ---------- VoteDesk sample election dashboard ---------- */
 #adminPanelVotedesk{max-width:1280px; margin:0 auto;}
 .vd-page-header{display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin:4px 0 20px;}
+.vd-page-title{min-width:0;}
+.vd-page-actions{display:flex; flex-direction:column; align-items:flex-end; gap:8px; margin-bottom:2px;}
+.vd-page-actions .vd-toolbar{display:flex; flex-wrap:nowrap; justify-content:flex-end; width:max-content; max-width:100%; margin:0; overflow:visible;}
+.vd-page-actions .vd-toolbar>.vd-election-picker{flex:0 0 160px; width:160px;}
+.vd-page-actions .vd-toolbar>.vd-election-picker>.vd-button{width:100%; justify-content:space-between;}
+.vd-page-actions .vd-toolbar>.vd-button{flex:0 0 auto; width:auto;}
 .vd-election-management{display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px;}
 .vd-loading-state{padding:24px; color:var(--muted); text-align:center;}
 .vd-load-error{margin:8px; padding:9px 10px; border-radius:8px; background:rgba(255,92,108,.1); color:#ffb1b8; font-size:11px; line-height:1.45;}
@@ -1050,7 +1059,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .vd-toolbar .vd-button{min-height:44px; padding:7px 10px; font-size:10px;}
 .vd-toolbar .vd-button-primary{background:linear-gradient(135deg,var(--blue),var(--indigo));}
 .vd-toolbar .vd-button-primary:hover:not(:disabled){background:linear-gradient(135deg,#ffd148,#316bf0);}
-.vd-election-menu{position:absolute; top:calc(100% + 7px); left:0; width:min(340px,calc(100vw - 32px)); padding:7px; border:1px solid var(--line-strong); border-radius:14px; background:#101d40; box-shadow:0 20px 50px rgba(0,0,0,.42);}
+.vd-election-menu{position:absolute; z-index:50; top:calc(100% + 7px); left:0; width:min(340px,calc(100vw - 32px)); padding:7px; border:1px solid var(--line-strong); border-radius:14px; background:#101d40; box-shadow:0 20px 50px rgba(0,0,0,.42);}
 .vd-election-option{display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; min-height:58px; padding:9px 11px; border:0; border-radius:9px; background:transparent; color:var(--ink); text-align:left; cursor:pointer;}
 .vd-election-option:hover,.vd-election-option.is-selected{background:rgba(255,255,255,.07);}
 .vd-election-option-copy{display:grid; gap:4px;}
@@ -1061,6 +1070,19 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .vd-election-menu-divider{height:1px; margin:6px 4px; background:var(--line-strong);}
 .vd-create-election-row{width:100%; min-height:44px; padding:9px 11px; border:0; border-radius:9px; background:transparent; color:var(--blue-light); text-align:left; font:700 12px 'Inter',sans-serif; cursor:pointer;}
 .vd-create-election-row:hover{background:rgba(245,179,1,.08);}
+.vd-staff-scope{margin:-10px 0 16px; color:var(--muted); font-size:11px; line-height:1.5;}
+.vd-staff-assign-form{display:grid; gap:8px; padding:13px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.035);}
+.vd-staff-assign-form>label{color:var(--muted); font-size:11px; font-weight:600;}
+.vd-staff-assign-form>div{display:flex; gap:8px;}
+.vd-staff-assign-form select{flex:1; min-width:0; min-height:44px; padding:8px 11px; border:1px solid var(--line-strong); border-radius:10px; background:#101d40; color:var(--ink); font:500 12px 'Inter',sans-serif;}
+.vd-staff-assign-form select:disabled{opacity:.6;}
+.vd-staff-list{display:grid; gap:9px; max-height:min(56vh,480px); overflow:auto; margin-top:14px;}
+.vd-staff-assignment{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.035);}
+.vd-staff-assignment>div{display:grid; gap:4px; min-width:0;}
+.vd-staff-assignment strong{font-size:13px;}
+.vd-staff-assignment span,.vd-staff-assignment small{color:var(--muted); font-size:11px; overflow-wrap:anywhere;}
+.vd-staff-assignment small{font-family:'IBM Plex Mono','Consolas',monospace;}
+.vd-staff-remove{flex:0 0 auto; min-height:36px; padding:6px 10px; color:#ffb1b8;}
 .vd-summary-grid{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:26px;}
 .vd-summary-card{display:flex; min-height:124px; flex-direction:column; justify-content:center; gap:6px; padding:17px; border:1px solid var(--line); border-radius:15px; background:linear-gradient(155deg,rgba(22,40,90,.98),rgba(14,27,61,.98));}
 .vd-summary-card>span{min-height:29px; color:var(--muted); font-size:11px; line-height:1.4;}
@@ -1262,6 +1284,9 @@ button:focus-visible,.vd-block-card:focus-visible{outline:3px solid var(--blue-l
   .sidebar-admin-group{margin:0; padding:0; border:none;}
   .admin-main{width:100%; overflow-y:auto; padding:12px 16px 24px;}
   .admin-account-bar{margin-bottom:12px;}
+  .vd-page-header{align-items:stretch; flex-direction:column; gap:12px;}
+  .vd-page-actions{width:100%; align-items:flex-end; margin:0;}
+  .vd-page-actions .vd-toolbar{justify-content:flex-start; width:100%; margin:0;}
   .dashboard-overview{grid-template-columns:1fr;}
   .participation-card{min-height:250px;}
   .vd-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
@@ -1269,6 +1294,7 @@ button:focus-visible,.vd-block-card:focus-visible{outline:3px solid var(--blue-l
   .vd-winner-card{width:100%;}
 }
 @media (max-width:600px){
+  .admin-election-context>strong{max-width:calc(100vw - 180px); font-size:16px;}
   .vote-fullscreen{padding:32px 16px;}
   .ballot-grid{grid-template-columns:1fr;}
   .candidate-profile-card{grid-template-columns:60px minmax(0,1fr); gap:10px; padding:10px;}
@@ -1281,11 +1307,15 @@ button:focus-visible,.vd-block-card:focus-visible{outline:3px solid var(--blue-l
   .status-card{text-align:center; width:100%;}
   .metric-card-grid{grid-template-columns:1fr;}
   #adminPanelVotedesk{padding:0 1px;}
-  .vd-page-header{flex-direction:column;}
+  .vd-page-header{align-items:stretch; flex-direction:column; gap:12px;}
+  .vd-page-actions{width:100%; align-items:stretch; margin:0;}
+  .vd-page-actions .vd-toolbar{justify-content:flex-start; width:100%; margin:0;}
   .vd-election-management{justify-content:flex-start;}
-  .vd-toolbar{display:grid; grid-template-columns:1fr 1fr;}
-  .vd-toolbar>.vd-election-picker,.vd-election-picker>.vd-button{width:100%;}
-  .vd-toolbar>.vd-button{width:100%; padding:7px 10px; font-size:10px;}
+  .vd-election-management{justify-content:flex-start;}
+  .vd-page-actions .vd-toolbar{overflow:visible;}
+  .vd-page-actions .vd-toolbar>.vd-election-picker{flex-basis:160px; width:160px;}
+  .vd-page-actions .vd-toolbar>.vd-election-picker>.vd-button{width:100%;}
+  .vd-page-actions .vd-toolbar>.vd-button{width:auto; padding:7px 10px; font-size:10px;}
   .vd-summary-grid{gap:8px;}
   .vd-summary-card{min-height:112px; padding:12px;}
   .vd-summary-card>span{font-size:10px;}

@@ -69,6 +69,96 @@ router.get("/", asyncHandler(async (_req, res) => {
   });
 }));
 
+router.get("/:id/staff", asyncHandler(async (req, res) => {
+  const { data: assignments, error: assignmentError } = await supabase
+    .from("election_staff")
+    .select("staff_id, created_at")
+    .eq("election_id", req.params.id)
+    .order("created_at", { ascending: true });
+  if (assignmentError) {
+    console.error("[elections] Failed to load assigned staff:", assignmentError.code, assignmentError.message);
+    if (isElectionSchemaError(assignmentError)) {
+      return res.status(503).json({ error: "Election staff assignment table is missing. Apply backend/sql/elections.sql in Supabase." });
+    }
+    return res.status(500).json({ error: "Couldn't load staff for this election." });
+  }
+
+  const assignedStaff = assignments || [];
+  if (!assignedStaff.length) return res.json({ staff: [] });
+
+  const { data: staff, error: staffError } = await supabase
+    .from("admins")
+    .select("id, name, email, username")
+    .eq("role", "staff")
+    .in("id", assignedStaff.map((assignment) => assignment.staff_id))
+    .order("name", { ascending: true });
+  if (staffError) return res.status(500).json({ error: "Couldn't load staff accounts." });
+
+  const assignmentById = new Map(assignedStaff.map((assignment) => [assignment.staff_id, assignment]));
+  res.json({
+    staff: (staff || []).map((account) => ({
+      ...account,
+      assignedAt: assignmentById.get(account.id).created_at,
+    })),
+  });
+}));
+
+router.post("/:id/staff", asyncHandler(async (req, res) => {
+  const staffId = String(req.body.staffId || "").trim();
+  if (!staffId) return res.status(400).json({ error: "Select a staff account to assign." });
+
+  const { data: staff, error: staffError } = await supabase
+    .from("admins")
+    .select("id, name, role")
+    .eq("id", staffId)
+    .maybeSingle();
+  if (staffError) return res.status(500).json({ error: "Couldn't check that staff account." });
+  if (!staff || staff.role !== "staff") return res.status(404).json({ error: "Staff account not found." });
+
+  const { error } = await supabase.from("election_staff").upsert(
+    { election_id: req.params.id, staff_id: staff.id, assigned_by: req.auth.id },
+    { onConflict: "election_id,staff_id" }
+  );
+  if (error) {
+    console.error("[elections] Failed to assign staff:", error.code, error.message);
+    if (isElectionSchemaError(error) || error.code === "23503") {
+      return res.status(503).json({ error: "Election or staff assignment data is unavailable. Check backend/sql/elections.sql and the selected election." });
+    }
+    return res.status(500).json({ error: "Couldn't assign staff to this election." });
+  }
+
+  await logActivity(req, {
+    action: "election.staff_assigned",
+    summary: `Assigned ${staff.name} to election ${req.params.id}.`,
+    targetType: "staff",
+    targetId: staff.id,
+    details: { electionId: req.params.id, staffId: staff.id },
+  });
+  res.json({ status: "assigned" });
+}));
+
+router.delete("/:id/staff/:staffId", asyncHandler(async (req, res) => {
+  const { error } = await supabase.from("election_staff")
+    .delete()
+    .eq("election_id", req.params.id)
+    .eq("staff_id", req.params.staffId);
+  if (error) {
+    console.error("[elections] Failed to remove assigned staff:", error.code, error.message);
+    if (isElectionSchemaError(error)) {
+      return res.status(503).json({ error: "Election staff assignment table is missing. Apply backend/sql/elections.sql in Supabase." });
+    }
+    return res.status(500).json({ error: "Couldn't remove staff from this election." });
+  }
+  await logActivity(req, {
+    action: "election.staff_removed",
+    summary: `Removed a staff assignment from election ${req.params.id}.`,
+    targetType: "staff",
+    targetId: req.params.staffId,
+    details: { electionId: req.params.id, staffId: req.params.staffId },
+  });
+  res.json({ status: "removed" });
+}));
+
 router.get("/:id", asyncHandler(async (req, res) => {
   const { data: election, error: electionError } = await supabase
     .from("elections")
