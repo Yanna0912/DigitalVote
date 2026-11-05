@@ -44,10 +44,11 @@ Same login form. A correct admin password triggers an **emailed OTP**
 step before the dashboard opens — the code goes to the admin's Gmail via
 the configured email provider. New officers can self-register via the "Sign
 up for admin access" link, or an existing admin can add one from the
-**Admins** tab.
+**Staff** tab.
 
 The admin console includes Dashboard, Live Result, Students, Candidates,
-QR Code, Activity, and Admin tabs. Use Dashboard to create a saved election
+QR Code, and Staff tabs. Staff accounts appear in the Staff list, and
+notifications are available from the top-bar bell. Use Dashboard to create a saved election
 from a CSV voter list (`name, block, email`) and candidate lists; each
 candidate name must uniquely match a voter. Open and close voting from the
 selected election dashboard. Do not use the sample list for a live election:

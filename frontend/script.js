@@ -665,12 +665,32 @@ document.getElementById("otpResendLink").onclick = async (e) => {
 };
 
 /* ---------------- Admin dashboard ---------------- */
+let adminProfile = {
+  name: "Erwin Gidoc",
+  username: "erwin.gidoc",
+  email: "admin@votedesk.example",
+  picture: "",
+};
+let adminProfileOwner = "";
+let signedOutAdmin = null;
+let profilePictureDraft = "";
+
 function openAdminDashboard(admin, initialTab = "votedesk") {
+  const profileOwner = String(admin.id || admin.username || "sample-admin");
+  if (adminProfileOwner !== profileOwner) {
+    adminProfileOwner = profileOwner;
+    adminProfile = {
+      name: admin.name || "Erwin Gidoc",
+      username: admin.username || "erwin.gidoc",
+      email: admin.email || "admin@votedesk.example",
+      picture: "",
+    };
+  }
+  updateAdminProfileDisplay();
   voterSection.classList.add("hidden");
   publicPage.classList.add("hidden");
   voteFullscreen.classList.remove("show");
   adminSection.classList.remove("hidden");
-  document.getElementById("adminWho").textContent = `${admin.name} \u00b7 ${admin.email}`;
   document.querySelector(".admin-sub").textContent = isStaffAccount() ? "Staff console" : "Admin console";
   switchAdminTab(initialTab);
   loadVoteDeskElections().then(() => {
@@ -681,6 +701,29 @@ function openAdminDashboard(admin, initialTab = "votedesk") {
 
 function isStaffAccount() {
   return currentAdmin?.role === "staff";
+}
+
+function initialsForName(name) {
+  return String(name || "").trim().split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase() || "EG";
+}
+
+function updateAdminProfileDisplay() {
+  const initials = initialsForName(adminProfile.name);
+  ["adminAvatar", "menuAvatar", "profileAvatar"].forEach((id) => {
+    const avatar = document.getElementById(id);
+    avatar.textContent = adminProfile.picture ? "" : initials;
+    avatar.classList.toggle("has-picture", Boolean(adminProfile.picture));
+    avatar.style.backgroundImage = adminProfile.picture ? `url("${adminProfile.picture}")` : "";
+  });
+  document.getElementById("menuAdminName").textContent = adminProfile.name;
+  document.getElementById("accountButton").setAttribute("aria-label", `Account menu for ${adminProfile.name}`);
+}
+
+function closeTopbarMenus() {
+  document.getElementById("notificationPanel").classList.add("hidden");
+  document.getElementById("accountMenu").classList.add("hidden");
+  document.getElementById("notificationButton").setAttribute("aria-expanded", "false");
+  document.getElementById("accountButton").setAttribute("aria-expanded", "false");
 }
 
 function refreshAll() {
@@ -699,19 +742,19 @@ document.getElementById("adminLogout").onclick = () => {
     clearInterval(dashboardRefreshInterval);
     dashboardRefreshInterval = null;
   }
+  closeTopbarMenus();
+  signedOutAdmin = currentAdmin || { name: adminProfile.name, username: adminProfile.username, email: adminProfile.email, role: "admin" };
   adminSection.classList.add("hidden");
-  publicPage.classList.remove("hidden");
-  voterSection.classList.remove("hidden");
+  document.getElementById("signedOutScreen").classList.remove("hidden");
   clearAdminToken();
   sessionStorage.removeItem(ADMIN_SESSION_KEY);
   sessionStorage.removeItem(ADMIN_TAB_KEY);
   currentAdmin = null;
-  resetToStart();
 };
 
 function switchAdminTab(tab) {
-  const adminTabs = ["votedesk", "dashboard", "students", "candidates", "qrcodes", "admins", "activity"];
-  const staffTabs = ["dashboard", "students", "candidates", "activity"];
+  const adminTabs = ["votedesk", "dashboard", "students", "candidates", "qrcodes", "admins"];
+  const staffTabs = ["dashboard", "students", "candidates"];
   const validTabs = isStaffAccount() ? staffTabs : adminTabs;
   const activeTab = validTabs.includes(tab) ? tab : "dashboard";
   sessionStorage.setItem(ADMIN_TAB_KEY, activeTab);
@@ -725,7 +768,6 @@ function switchAdminTab(tab) {
   });
   if (activeTab === "votedesk") renderVoteDeskDashboard();
   if (activeTab === "votedesk") loadVoteDeskElections();
-  if (activeTab === "activity") loadActivity(false);
 }
 document.querySelectorAll(".sidebar-link").forEach((btn) => {
   btn.addEventListener("click", () => switchAdminTab(btn.dataset.admintab));
@@ -1521,114 +1563,205 @@ voteDeskDialogContent.addEventListener("submit", async (event) => {
   await voteDeskCreateElection();
 });
 
-let activityPage = 1;
-let activityLoading = false;
-let activityEvents = [];
-let activityReturnFocus = null;
+const dashboardNotifications = [
+  { title: "Credentials generated", message: "Usernames and passwords generated for 412 voters in Block C.", time: "5 minutes ago", type: "success", unread: true },
+  { title: "Low turnout in Block D", message: "Turnout is 66%, the lowest of all blocks.", time: "22 minutes ago", type: "warning", unread: true },
+  { title: "Voter list uploaded", message: "CSV sorted into 4 blocks with 192 voters.", time: "1 hour ago", type: "info", unread: true },
+  { title: "Failed sign-in attempts", message: "3 failed attempts on a voter account. It was locked for 15 minutes.", time: "3 hours ago", type: "warning", unread: false },
+  { title: "Election certified", message: "2025 General Election results certified.", time: "Yesterday", type: "success", unread: false },
+  { title: "Candidate added", message: "A candidate was added to the President ballot.", time: "2 days ago", type: "info", unread: false },
+];
+let notificationFilter = "all";
 
-function renderActivityEvents(events, append) {
-  const rows = document.getElementById("activityRows");
-  if (!append) {
-    rows.innerHTML = "";
-    activityEvents = [];
-  }
-  if (!events.length && !append) {
-    rows.innerHTML = `<p class="activity-state">No activity messages yet.</p>`;
+function renderNotifications() {
+  const unreadCount = dashboardNotifications.filter((item) => item.unread).length;
+  const badge = document.getElementById("notificationBadge");
+  const button = document.getElementById("notificationButton");
+  badge.textContent = unreadCount;
+  badge.classList.toggle("hidden", unreadCount === 0);
+  button.setAttribute("aria-label", unreadCount ? `Notifications, ${unreadCount} unread` : "Notifications, all caught up");
+  document.getElementById("notificationUnreadSummary").textContent = unreadCount ? `${unreadCount} unread` : "All caught up";
+  document.querySelector('[data-notification-filter="all"]').textContent = `All (${dashboardNotifications.length})`;
+  document.querySelector('[data-notification-filter="unread"]').textContent = `Unread (${unreadCount})`;
+
+  const visible = dashboardNotifications.filter((item) => notificationFilter === "all" || item.unread);
+  const list = document.getElementById("notificationList");
+  if (!visible.length) {
+    list.innerHTML = `<p class="notification-empty">You have read every notification.</p>`;
     return;
   }
-  const markup = events.map((event) => {
-    const index = activityEvents.push(event) - 1;
-    return `<button class="activity-message" type="button" data-activity-index="${index}">
-      <span class="activity-message-copy">
-        <strong>${escapeHtml(event.summary)}</strong>
-        <small>Open message</small>
-      </span>
-      <span class="activity-message-arrow" aria-hidden="true">&#8594;</span>
+  list.innerHTML = visible.map((item) => {
+    const index = dashboardNotifications.indexOf(item);
+    const icon = item.type === "success" ? "&#10003;" : item.type === "warning" ? "&#9888;" : "i";
+    return `<button class="notification-row ${item.unread ? "is-unread" : ""}" type="button" data-notification-index="${index}" aria-label="${escapeHtml(item.title)}${item.unread ? ", unread" : ""}">
+      <span class="notification-icon ${item.type}" aria-hidden="true">${icon}</span>
+      <span class="notification-copy"><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.message)}</span><small>${escapeHtml(item.time)}</small></span>
+      ${item.unread ? '<span class="notification-unread-dot" aria-label="Unread"></span>' : '<span class="notification-read-spacer"></span>'}
     </button>`;
   }).join("");
-  rows.insertAdjacentHTML("beforeend", markup);
 }
 
-function showActivityMessage(event) {
-  const overlay = document.getElementById("activityDetailOverlay");
-  const labels = {
-    recipient: "Email recipient",
-    delivery: "Delivery status",
-    credentialType: "Credential type",
-    block: "Block",
-    count: "Records imported",
-    position: "Position",
-    positionsCount: "Positions selected",
-    username: "Username",
-    votingOpen: "Voting status",
-    party: "Party",
-    source: "Source",
-  };
-  const facts = Object.entries(labels)
-    .filter(([key]) => event.details && event.details[key] !== undefined && event.details[key] !== null && event.details[key] !== "")
-    .map(([key, label]) => {
-      const value = event.details[key] === true ? "Open" : event.details[key] === false ? "Closed" : event.details[key];
-      return `<p><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span></p>`;
-    }).join("");
-
-  document.getElementById("activityDetailTitle").textContent = event.summary || "Activity message";
-  document.getElementById("activityDetailFacts").innerHTML = facts;
-  activityReturnFocus = document.activeElement;
-  overlay.classList.add("show");
-  overlay.setAttribute("aria-hidden", "false");
-  document.getElementById("activityDetailClose").focus();
-}
-
-function closeActivityMessage() {
-  const overlay = document.getElementById("activityDetailOverlay");
-  overlay.classList.remove("show");
-  overlay.setAttribute("aria-hidden", "true");
-  if (activityReturnFocus?.isConnected) activityReturnFocus.focus();
-}
-
-document.getElementById("activityRows").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-activity-index]");
-  if (!button) return;
-  const activity = activityEvents[Number(button.dataset.activityIndex)];
-  if (activity) showActivityMessage(activity);
+document.getElementById("notificationButton").addEventListener("click", () => {
+  const panel = document.getElementById("notificationPanel");
+  const willOpen = panel.classList.contains("hidden");
+  closeTopbarMenus();
+  if (willOpen) {
+    panel.classList.remove("hidden");
+    document.getElementById("notificationButton").setAttribute("aria-expanded", "true");
+    renderNotifications();
+  }
 });
-document.getElementById("activityDetailClose").onclick = closeActivityMessage;
-document.getElementById("activityDetailOverlay").addEventListener("click", (event) => {
-  if (event.target.id === "activityDetailOverlay") closeActivityMessage();
+document.querySelectorAll(".notification-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    notificationFilter = tab.dataset.notificationFilter;
+    document.querySelectorAll(".notification-tab").forEach((item) => {
+      const selected = item === tab;
+      item.classList.toggle("selected", selected);
+      item.setAttribute("aria-selected", String(selected));
+    });
+    renderNotifications();
+  });
+});
+document.getElementById("notificationList").addEventListener("click", (event) => {
+  const row = event.target.closest("[data-notification-index]");
+  if (!row) return;
+  dashboardNotifications[Number(row.dataset.notificationIndex)].unread = false;
+  renderNotifications();
+});
+document.getElementById("markAllNotificationsRead").addEventListener("click", () => {
+  dashboardNotifications.forEach((item) => { item.unread = false; });
+  renderNotifications();
+});
+renderNotifications();
+
+document.getElementById("accountButton").addEventListener("click", () => {
+  const menu = document.getElementById("accountMenu");
+  const willOpen = menu.classList.contains("hidden");
+  closeTopbarMenus();
+  if (willOpen) {
+    menu.classList.remove("hidden");
+    document.getElementById("accountButton").setAttribute("aria-expanded", "true");
+  }
+});
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#notificationAnchor") && !event.target.closest("#accountAnchor")) closeTopbarMenus();
+});
+
+const editProfileOverlay = document.getElementById("editProfileOverlay");
+function openEditProfile() {
+  closeTopbarMenus();
+  profilePictureDraft = adminProfile.picture;
+  document.getElementById("profileName").value = adminProfile.name;
+  document.getElementById("profileUsername").value = adminProfile.username;
+  document.getElementById("profileEmail").value = adminProfile.email;
+  ["profileCurrentPassword", "profileNewPassword", "profileConfirmPassword"].forEach((id) => { document.getElementById(id).value = ""; });
+  document.getElementById("removeProfilePicture").classList.toggle("hidden", !adminProfile.picture);
+  document.getElementById("profileError").classList.add("hidden");
+  document.getElementById("profileSuccess").classList.add("hidden");
+  updateAdminProfileDisplay();
+  editProfileOverlay.classList.add("show");
+  editProfileOverlay.setAttribute("aria-hidden", "false");
+  document.getElementById("profileName").focus();
+}
+function closeEditProfile() {
+  editProfileOverlay.classList.remove("show");
+  editProfileOverlay.setAttribute("aria-hidden", "true");
+}
+document.getElementById("accountSummary").addEventListener("click", openEditProfile);
+document.getElementById("editProfileMenu").addEventListener("click", openEditProfile);
+document.getElementById("chooseProfilePicture").addEventListener("click", () => {
+  document.getElementById("profilePictureInput").click();
+});
+document.getElementById("closeEditProfile").addEventListener("click", closeEditProfile);
+document.getElementById("profileCloseButton").addEventListener("click", closeEditProfile);
+editProfileOverlay.addEventListener("click", (event) => {
+  if (event.target === editProfileOverlay) closeEditProfile();
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && document.getElementById("activityDetailOverlay").classList.contains("show")) closeActivityMessage();
+  if (event.key === "Escape") {
+    closeTopbarMenus();
+    if (editProfileOverlay.classList.contains("show")) closeEditProfile();
+  }
+});
+document.getElementById("profilePictureInput").addEventListener("change", (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const error = document.getElementById("profileError");
+  const validImage = ["image/png", "image/jpeg"].includes(file.type);
+  if (!validImage || file.size > 2 * 1024 * 1024) {
+    error.textContent = !validImage ? "Choose a PNG or JPG image." : "The picture must be 2 MB or smaller.";
+    error.classList.remove("hidden");
+    event.target.value = "";
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    profilePictureDraft = String(reader.result);
+    const preview = document.getElementById("profileAvatar");
+    preview.textContent = "";
+    preview.classList.add("has-picture");
+    preview.style.backgroundImage = `url("${profilePictureDraft}")`;
+    document.getElementById("removeProfilePicture").classList.remove("hidden");
+    error.classList.add("hidden");
+  };
+  reader.onerror = () => {
+    error.textContent = "The picture could not be read. Choose another image.";
+    error.classList.remove("hidden");
+  };
+  reader.readAsDataURL(file);
+});
+document.getElementById("removeProfilePicture").addEventListener("click", () => {
+  profilePictureDraft = "";
+  const preview = document.getElementById("profileAvatar");
+  preview.textContent = initialsForName(adminProfile.name);
+  preview.classList.remove("has-picture");
+  preview.style.backgroundImage = "";
+  document.getElementById("removeProfilePicture").classList.add("hidden");
+  document.getElementById("profilePictureInput").value = "";
+});
+document.getElementById("saveProfile").addEventListener("click", () => {
+  const name = document.getElementById("profileName").value.trim();
+  const username = document.getElementById("profileUsername").value.trim();
+  const email = document.getElementById("profileEmail").value.trim();
+  const currentPassword = document.getElementById("profileCurrentPassword").value;
+  const newPassword = document.getElementById("profileNewPassword").value;
+  const confirmation = document.getElementById("profileConfirmPassword").value;
+  const errors = [];
+  if (!name) errors.push("Full name is required.");
+  if (!/^[A-Za-z0-9._-]{3,30}$/.test(username)) errors.push("Username must be 3 to 30 characters using letters, numbers, dots, dashes or underscores.");
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push("Enter a valid email address or leave it empty.");
+  const changingPassword = Boolean(currentPassword || newPassword || confirmation);
+  if (changingPassword && !currentPassword) errors.push("Enter your current password to change it.");
+  if (changingPassword && newPassword.length < 8) errors.push("New password must be at least 8 characters.");
+  if (changingPassword && newPassword !== confirmation) errors.push("New password and confirmation do not match.");
+  if (changingPassword && newPassword && newPassword === currentPassword) errors.push("New password must be different from the current password.");
+
+  const error = document.getElementById("profileError");
+  const success = document.getElementById("profileSuccess");
+  success.classList.add("hidden");
+  if (errors.length) {
+    error.textContent = errors.join(" ");
+    error.classList.remove("hidden");
+    return;
+  }
+  adminProfile = { name, username, email, picture: profilePictureDraft };
+  if (currentAdmin) {
+    currentAdmin = { ...currentAdmin, name, username, email };
+    cacheAdminSession(currentAdmin);
+  }
+  updateAdminProfileDisplay();
+  ["profileCurrentPassword", "profileNewPassword", "profileConfirmPassword"].forEach((id) => { document.getElementById(id).value = ""; });
+  error.classList.add("hidden");
+  success.textContent = changingPassword ? "Profile saved and password changed." : "Profile saved.";
+  success.classList.remove("hidden");
+  document.getElementById("removeProfilePicture").classList.toggle("hidden", !profilePictureDraft);
 });
 
-async function loadActivity(append = false) {
-  if (activityLoading) return;
-  activityLoading = true;
-  const rows = document.getElementById("activityRows");
-  const moreButton = document.getElementById("activityLoadMore");
-  const refreshButton = document.getElementById("refreshActivity");
-  if (!append) {
-    activityPage = 1;
-    rows.innerHTML = `<p class="activity-state">Loading messages...</p>`;
-  }
-  moreButton.disabled = true;
-  refreshButton.disabled = true;
-  try {
-    const page = append ? activityPage + 1 : 1;
-    const data = await api(`/admin/activity?page=${page}&pageSize=50`, { token: adminToken });
-    activityPage = data.page;
-    renderActivityEvents(data.events || [], append);
-    moreButton.classList.toggle("hidden", !data.hasMore);
-  } catch (err) {
-    if (!append) rows.innerHTML = `<p class="activity-state">${escapeHtml(err.error || "Couldn't load activity messages.")}</p>`;
-  } finally {
-    activityLoading = false;
-    moreButton.disabled = false;
-    refreshButton.disabled = false;
-  }
-}
-
-document.getElementById("refreshActivity").onclick = () => loadActivity(false);
-document.getElementById("activityLoadMore").onclick = () => loadActivity(true);
+document.getElementById("returnToDashboard").addEventListener("click", () => {
+  document.getElementById("signedOutScreen").classList.add("hidden");
+  currentAdmin = signedOutAdmin || { name: adminProfile.name, username: adminProfile.username, email: adminProfile.email, role: "admin" };
+  openAdminDashboard(currentAdmin, "votedesk");
+});
 
 /* ---- dashboard: stats + election status toggle + live results ---- */
 let dashboardRefreshInterval = null;
@@ -2258,7 +2391,7 @@ async function renderAdminList() {
   let admins;
   try {
     const data = await api("/admin/admins", { token: adminToken });
-    admins = data.admins || [];
+    admins = (data.admins || []).filter((account) => account.role === "staff");
   } catch (error) {
     el.innerHTML = `<p class="error-text">${escapeHtml(error.error || "Couldn't load admin accounts.")}</p>`;
     return;
@@ -2278,7 +2411,7 @@ async function renderAdminList() {
             </div>
           </div>`;
       }).join("")
-    : `<p class="panel-note">No Admin or Staff accounts yet.</p>`;
+    : `<p class="panel-note">No staff accounts have been added yet.</p>`;
 
 }
 

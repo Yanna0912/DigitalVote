@@ -75,19 +75,50 @@
           <button class="sidebar-link" data-admintab="students">Students</button>
           <button class="sidebar-link" data-admintab="candidates">Candidates</button>
           <button class="sidebar-link" data-admintab="qrcodes">QR Code</button>
-          <button class="sidebar-link" data-admintab="activity">Activity</button>
         </nav>
 
         <div class="sidebar-admin-group">
-          <button class="sidebar-link" data-admintab="admins">Admin</button>
+          <button class="sidebar-link" data-admintab="admins">Staff</button>
         </div>
 
       </aside>
 
       <main class="admin-main">
         <div class="admin-account-bar">
-          <p class="admin-account-name" id="adminWho"></p>
-          <button class="btn-logout" id="adminLogout" type="button">Log out</button>
+          <div class="admin-topbar-controls">
+            <div class="admin-popover-anchor" id="notificationAnchor">
+              <button class="topbar-icon-button notification-trigger" id="notificationButton" type="button" aria-label="Notifications, 3 unread" aria-expanded="false" aria-controls="notificationPanel">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+                <span class="notification-badge" id="notificationBadge">3</span>
+              </button>
+              <section class="topbar-popover notification-panel hidden" id="notificationPanel" aria-label="Notifications">
+                <header class="notification-heading">
+                  <div><h2>Notifications</h2><p id="notificationUnreadSummary">3 unread</p></div>
+                  <button class="text-action" id="markAllNotificationsRead" type="button">Mark all as read</button>
+                </header>
+                <div class="notification-tabs" role="tablist" aria-label="Filter notifications">
+                  <button class="notification-tab selected" type="button" role="tab" aria-selected="true" data-notification-filter="all">All (6)</button>
+                  <button class="notification-tab" type="button" role="tab" aria-selected="false" data-notification-filter="unread">Unread (3)</button>
+                </div>
+                <div class="notification-list" id="notificationList" role="tabpanel"></div>
+              </section>
+            </div>
+            <div class="admin-popover-anchor" id="accountAnchor">
+              <button class="account-trigger" id="accountButton" type="button" aria-label="Open account menu" aria-expanded="false" aria-controls="accountMenu">
+                <span class="admin-avatar" id="adminAvatar">EG</span><svg class="account-caret" viewBox="0 0 12 8" aria-hidden="true"><path d="m1 1 5 5 5-5"/></svg>
+              </button>
+              <section class="topbar-popover account-menu hidden" id="accountMenu" aria-label="Account menu">
+                <button class="account-summary" id="accountSummary" type="button">
+                  <span class="admin-avatar account-menu-avatar" id="menuAvatar">EG</span>
+                  <span><strong id="menuAdminName">Erwin Gidoc</strong><small>Election administrator</small></span>
+                </button>
+                <div class="account-menu-divider"></div>
+                <button class="account-menu-item" id="editProfileMenu" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Profile</button>
+                <div class="account-menu-divider"></div>
+                <button class="account-menu-item logout-item" id="adminLogout" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5M15 12H3m9-7h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-7"/></svg>Log out</button>
+              </section>
+            </div>
+          </div>
         </div>
 
         <section class="admin-panel hidden" id="adminPanelVotedesk">
@@ -169,22 +200,12 @@
 
         <section class="admin-panel hidden" id="adminPanelAdmins">
           <div class="panel-header-row">
-            <h2>Admin &amp; Staff accounts</h2>
+            <h2>Staff accounts</h2>
             <button class="btn-gradient btn-small" id="openAddAdminModal">Add Staff</button>
           </div>
-          <div id="adminList"></div>
-        </section>
-
-        <section class="admin-panel hidden" id="adminPanelActivity">
-          <div class="panel-header-row">
-            <h2>Activity log</h2>
-            <button class="btn-gradient btn-small" id="refreshActivity" type="button">Refresh</button>
-          </div>
-          <div class="activity-messages" id="activityRows">
-            <p class="activity-state">Open Activity to load messages.</p>
-          </div>
-          <button class="btn-secondary activity-more hidden" id="activityLoadMore" type="button">Load older activity</button>
-        </section>
+            <p class="panel-note">Only staff accounts added by an election administrator appear here.</p>
+            <div id="adminList"></div>
+          </section>
 
       </main>
     </div>
@@ -198,12 +219,45 @@
   </section>
 </div>
 
-<div class="overlay" id="activityDetailOverlay" aria-hidden="true">
-  <section class="cred-modal activity-detail-modal" role="dialog" aria-modal="true" aria-labelledby="activityDetailTitle">
-    <button class="icon-btn cred-close" id="activityDetailClose" type="button" aria-label="Close">&times;</button>
-    <p class="cred-eyebrow">Activity message</p>
-    <h3 class="cred-name" id="activityDetailTitle"></h3>
-    <div class="activity-detail-facts" id="activityDetailFacts"></div>
+<div class="overlay profile-overlay" id="editProfileOverlay" aria-hidden="true">
+  <section class="cred-modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+    <button class="icon-btn cred-close" id="closeEditProfile" type="button" aria-label="Close edit profile">&times;</button>
+    <p class="cred-eyebrow">Account settings</p>
+    <h3 class="cred-name" id="profileTitle">Edit profile</h3>
+    <p class="profile-subtitle">Update your name, picture, username and password</p>
+    <div class="profile-picture-section">
+      <span class="admin-avatar profile-avatar" id="profileAvatar">EG</span>
+      <div>
+        <button class="profile-upload-button" id="chooseProfilePicture" type="button" aria-controls="profilePictureInput">Upload picture</button>
+        <input id="profilePictureInput" type="file" accept="image/png,image/jpeg" hidden>
+        <button class="text-action remove-picture hidden" id="removeProfilePicture" type="button">Remove picture</button>
+        <p class="profile-picture-hint">PNG or JPG, up to 2 MB</p>
+      </div>
+    </div>
+    <div class="profile-fields">
+      <label for="profileName">Full name<input id="profileName" type="text" autocomplete="name"></label>
+      <label for="profileUsername">Username<input id="profileUsername" type="text" autocomplete="username"></label>
+      <label for="profileEmail">Email<input id="profileEmail" type="email" autocomplete="email"></label>
+      <h4>Change password</h4>
+      <label for="profileCurrentPassword">Current password<input id="profileCurrentPassword" type="password" autocomplete="current-password"></label>
+      <label for="profileNewPassword">New password<input id="profileNewPassword" type="password" autocomplete="new-password"><small>At least 8 characters</small></label>
+      <label for="profileConfirmPassword">Confirm new password<input id="profileConfirmPassword" type="password" autocomplete="new-password"></label>
+    </div>
+    <div class="profile-alert profile-error hidden" id="profileError" role="alert"></div>
+    <div class="profile-alert profile-success hidden" id="profileSuccess" role="status"></div>
+    <div class="profile-actions">
+      <button class="profile-close-button" id="profileCloseButton" type="button">Close</button>
+      <button class="profile-save-button" id="saveProfile" type="button">Save changes</button>
+    </div>
+  </section>
+</div>
+
+<div class="signed-out-screen hidden" id="signedOutScreen">
+  <section class="signed-out-card">
+    <img src="assets/ssg.png" alt="" class="signed-out-logo">
+    <h1>You are logged out</h1>
+    <p>Your admin session has ended. Sign in again to manage the election.</p>
+    <button id="returnToDashboard" type="button">Sign in as Erwin Gidoc</button>
   </section>
 </div>
 
@@ -372,7 +426,7 @@
     <p class="cred-eyebrow">Admin accounts</p>
     <h3 class="cred-name">Add a Staff account</h3>
     <div class="field-dark">
-      <p class="panel-note">Staff can manage Students and Candidates and view Live Result and Activity. Admin accounts can only be provisioned by a trusted operator.</p>
+      <p class="panel-note">Staff can manage Students and Candidates and view Live Result. Admin accounts can only be provisioned by a trusted operator.</p>
     </div>
     <div class="field-dark">
       <label>Full name</label>
