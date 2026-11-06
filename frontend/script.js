@@ -2017,9 +2017,9 @@ async function renderResultsPanel() {
   const header = (updatedAt = "Waiting for results…") => `
     <div class="live-results-header">
       <div>
-        <p class="live-results-election-name">${electionName ? `Current election: ${escapeHtml(electionName)}` : "Current election"}</p>
+        <p class="live-results-election-name">${electionName ? `Current election: ${escapeHtml(electionName)}` : ""}</p>
         <span class="live-results-indicator">LIVE</span>
-        <p class="live-results-meta" aria-live="polite">Auto-refreshes every 15 seconds · ${updatedAt}</p>
+        <p class="live-results-meta" aria-live="polite"> · ${updatedAt}</p>
       </div>
       <button class="btn-gradient live-results-refresh" id="refreshLiveResults" type="button">Refresh now</button>
     </div>`;
