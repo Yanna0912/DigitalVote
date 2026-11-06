@@ -897,7 +897,7 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .live-results-header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:22px;}
 .live-results-title{display:flex; align-items:center; gap:11px; min-width:0;}
 .live-results-title h3{font-size:21px; font-weight:800; color:var(--ink);}
-.live-results-election-name{margin:5px 0 0; color:var(--blue-light); font:700 13px 'Sora',sans-serif; overflow-wrap:anywhere;}
+.live-results-election-name{margin:0 0 5px; color:var(--blue-light); font:700 13px 'Sora',sans-serif; overflow-wrap:anywhere;}
 .live-results-meta{font-size:11px; color:var(--muted); margin:5px 0 0;}
 .live-results-indicator{display:inline-flex; align-items:center; gap:6px; color:var(--success); font-size:10px; font-weight:800; letter-spacing:.08em;}
 .live-results-indicator::before{content:''; width:7px; height:7px; border-radius:50%; background:currentColor; box-shadow:0 0 9px currentColor;}
@@ -1175,6 +1175,11 @@ h1,h2,h3{font-family:'Sora',sans-serif; margin:0;}
 .vd-candidate-section>header>span{color:var(--muted); font:400 10px 'IBM Plex Mono','Consolas',monospace;}
 .vd-candidate-list{display:grid; gap:8px;}
 .vd-candidate-row{display:grid; grid-template-columns:45px minmax(0,1fr) auto; align-items:center; gap:11px; padding:11px; border:1px solid var(--line); border-radius:11px; background:rgba(255,255,255,.03);}
+.vd-election-candidate-row{display:grid; gap:6px; min-width:0;}
+.vd-election-candidate-row .candidate-profile-card{grid-template-columns:76px minmax(0,1fr) 112px; padding:10px;}
+.vd-election-candidate-meta{display:flex; align-items:center; flex-wrap:wrap; gap:7px;}
+.vd-election-ballot-number{color:var(--muted); font:400 9px 'IBM Plex Mono','Consolas',monospace;}
+.vd-election-candidate-meta .vd-block-chips{margin-top:0;}
 .vd-candidate-main{display:grid; gap:4px; min-width:0;}
 .vd-candidate-main>strong{font-size:12px; overflow-wrap:anywhere;}
 .vd-candidate-main>span{color:var(--muted); font-size:10px;}
@@ -1338,6 +1343,9 @@ button:focus-visible,.vd-block-card:focus-visible{outline:3px solid var(--blue-l
   .vd-candidate-row{grid-template-columns:38px minmax(0,1fr); gap:8px;}
   .vd-candidate-row>.vd-avatar{width:38px; height:38px;}
   .vd-candidate-result{grid-column:2; justify-items:start; display:flex; flex-wrap:wrap; align-items:center; gap:7px;}
+  .vd-election-candidate-row .candidate-profile-card{grid-template-columns:50px minmax(0,1fr); gap:8px; padding:8px;}
+  .vd-election-candidate-row .candidate-profile-photo{width:50px; height:50px;}
+  .vd-election-candidate-row .candidate-profile-result{grid-column:2; align-items:flex-start; border-left:0; border-top:1px solid var(--line); padding-top:6px; min-height:0;}
   .vd-form-grid,.vd-position-editors{grid-template-columns:1fr;}
   .vd-upload-actions{display:grid; grid-template-columns:1fr;}
   .vd-upload-actions>.vd-button{width:100%;}

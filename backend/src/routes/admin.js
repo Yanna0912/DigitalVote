@@ -2,11 +2,12 @@ const express = require("express");
 const multer = require("multer");
 const Papa = require("papaparse");
 const bcrypt = require("bcryptjs");
+const { randomBytes } = require("crypto");
 const { supabase } = require("../db");
 const { requireAdmin } = require("../auth");
 const { logActivity } = require("../audit");
 const { studentDisplayName, studentNameParts, genPassword, isGmail, asyncHandler } = require("../utils");
-const { sendMail, studentCredentialsEmail } = require("../mailer");
+const { sendMail, studentCredentialsEmail, staffCredentialsEmail } = require("../mailer");
 const { candidateRacePosition } = require("../election");
 
 const router = express.Router();
@@ -54,7 +55,15 @@ router.put("/profile", asyncHandler(async (req, res) => {
   if (!/^[A-Za-z0-9._-]{3,30}$/.test(username)) {
     return res.status(400).json({ error: "Username must be 3 to 30 characters using letters, numbers, dots, dashes or underscores." });
   }
-  if (!isGmail(email)) return res.status(400).json({ error: "Please use a Gmail address so admin verification codes can be delivered." });
+  if (req.auth.role === "staff"
+    ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    : !isGmail(email)) {
+    return res.status(400).json({
+      error: req.auth.role === "staff"
+        ? "Enter a valid email address so login verification codes can be delivered."
+        : "Please use a Gmail address so admin verification codes can be delivered.",
+    });
+  }
   if (newPassword && newPassword.length < 8) return res.status(400).json({ error: "New password must be at least 8 characters." });
   if (newPassword && !currentPassword) return res.status(400).json({ error: "Enter your current password to change it." });
   if (newPassword && newPassword === currentPassword) return res.status(400).json({ error: "New password must be different from the current password." });
@@ -520,35 +529,49 @@ router.get("/admins", asyncHandler(async (_req, res) => {
 
 router.post("/admins", asyncHandler(async (req, res) => {
   const name = String(req.body.name || "").trim();
-  const email = String(req.body.email || "").trim();
-  const username = String(req.body.username || "").trim();
-  const password = String(req.body.password || "");
+  const email = String(req.body.email || "").trim().toLowerCase();
   const requestedRole = String(req.body.role || "staff").trim().toLowerCase();
   const role = "staff";
-  if (!name || !email || !username || !password) return res.status(400).json({ error: "Please fill in every field." });
   if (requestedRole !== "staff") return res.status(400).json({ error: "Only Staff accounts can be created here." });
-  if (!isGmail(email)) return res.status(400).json({ error: "Please use a Gmail address." });
-  if (password.length < 8) return res.status(400).json({ error: "Password should be at least 8 characters." });
+  if (!name) return res.status(400).json({ error: "Full name is required." });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Enter a valid email address." });
 
-  const { data: existing, error: lookupError } = await supabase.from("admins").select("id").ilike("username", username).maybeSingle();
+  const { data: existing, error: lookupError } = await supabase.from("admins").select("id").ilike("email", email).maybeSingle();
   if (lookupError) return res.status(500).json({ error: "Couldn't check the account details." });
-  if (existing) return res.status(409).json({ error: "That username is already taken." });
+  if (existing) return res.status(409).json({ error: "That email is already in use." });
 
+  const emailName = email.split("@")[0].replace(/[^A-Za-z0-9._-]/g, "").slice(0, 18) || "staff";
+  const username = `${emailName}.${randomBytes(4).toString("hex")}`;
+  const password = genPassword(12);
   const password_hash = await bcrypt.hash(password, 10);
   const { data: createdAdmin, error } = await supabase.from("admins")
     .insert({ name, email, username, password_hash, role })
     .select("id")
     .single();
   if (error?.code === "23505") return res.status(409).json({ error: "That username or email is already in use." });
-  if (error) return res.status(500).json({ error: "Couldn't add that admin." });
+  if (error) return res.status(500).json({ error: "Couldn't add that staff account." });
+
+  const mailResult = await sendMail({
+    to: email,
+    ...staffCredentialsEmail({ name, username, password }),
+  });
+  if (!mailResult.delivered) {
+    const { error: deleteError } = await supabase.from("admins").delete().eq("id", createdAdmin.id);
+    if (deleteError) {
+      console.error("[admin] Failed to remove staff account after credentials email failed:", deleteError.code, deleteError.message);
+      return res.status(500).json({ error: "The staff account was created, but its credentials email failed and the account could not be removed. Contact an administrator before retrying." });
+    }
+    return res.status(502).json({ error: "Couldn't send the staff login credentials. Check the email address and try again." });
+  }
+
   await logActivity(req, {
     action: "admin.account_added",
     summary: `Added ${role} account for ${name}.`,
     targetType: role,
     targetId: createdAdmin.id,
-    details: { username, email, role },
+    details: { username, email, role, credentialsDelivery: "sent" },
   });
-  res.json({ status: "added" });
+  res.json({ status: "added", message: `Login credentials were emailed to ${email}.` });
 }));
 
 router.delete("/admins/:id", asyncHandler(async (req, res) => {

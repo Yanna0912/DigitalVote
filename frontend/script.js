@@ -691,6 +691,7 @@ function openAdminDashboard(admin, initialTab = "votedesk") {
   voteFullscreen.classList.remove("show");
   adminSection.classList.remove("hidden");
   document.querySelector(".admin-sub").textContent = isStaffAccount() ? "Staff console" : "Admin console";
+  document.querySelector("#accountSummary small").textContent = isStaffAccount() ? "Staff account" : "Election administrator";
   switchAdminTab(initialTab);
   loadVoteDeskElections().then(() => {
     if (!isStaffAccount()) refreshAll();
@@ -911,18 +912,6 @@ voteDeskElections = [
     positions: [
       voteDeskPosition("President", [["Mateo Garcia", "Unity Bloc", 40], ["Leah Bautista", "Bagong Simula", 37], ["Andre Flores", "Independent", 23]]),
       voteDeskPosition("Vice President", [["Zoe Torres", "Bagong Simula", 42], ["Rafael Aquino", "Unity Bloc", 34], ["Clara Rivera", "Independent", 24]]),
-    ],
-  }),
-  voteDeskMakeElection({
-    id: "election-2019", title: "2019 General Election", year: 2019, status: "Archived", date: "October 15, 2019",
-    staff: [
-      { id: "demo-2019-staff-1", name: "Avery Garcia", username: "avery.garcia", email: "avery.garcia@example.invalid", assignedAt: "2019-09-06T09:00:00Z" },
-      { id: "demo-2019-staff-2", name: "Casey Flores", username: "casey.flores", email: "casey.flores@example.invalid", assignedAt: "2019-09-09T09:00:00Z" },
-    ],
-    blocks: [{ registered: 98, turnout: 73 }, { registered: 114, turnout: 91 }, { registered: 106, turnout: 84 }, { registered: 89, turnout: 67 }, { registered: 123, turnout: 101 }, { registered: 109, turnout: 80 }],
-    positions: [
-      voteDeskPosition("President", [["Maya Dela Cruz", "Bagong Simula", 45], ["Caleb Ramos", "Independent", 31], ["Isla Santos", "Unity Bloc", 24]]),
-      voteDeskPosition("Vice President", [["Joaquin Lopez", "Unity Bloc", 38], ["Iris Navarro", "Bagong Simula", 36], ["Theo Castillo", "Independent", 26]]),
     ],
   }),
 ];
@@ -1422,6 +1411,16 @@ function renderVoteDeskCandidates(election) {
           const share = valid ? Math.round(candidate.votes / valid * 100) : 0;
           const state = !finalized || !valid ? "Pending" : !winner ? "Tie" : candidate.id === winner.id ? "Won" : "Lost";
           const stateClass = state === "Won" ? "vd-status-winner" : state === "Lost" ? "vd-status-lost" : "vd-status-pending";
+          if (voteDeskIsPersistent(election)) {
+            return `<article class="vd-election-candidate-row">${candidateProfileMarkup({
+              ...candidate,
+              id_no: candidate.voterId,
+              party: candidate.slate,
+            }, {
+              votes: candidate.votes,
+              percent: share,
+            })}<div class="vd-election-candidate-meta"><span class="vd-election-ballot-number">Ballot ${String(position.candidates.indexOf(candidate) + 1).padStart(2, "0")}</span><div class="vd-block-chips">${election.blocks.map((block) => `<span>${escapeHtml(block.name.replace("Block ", ""))} <b>${candidate.blockVotes[block.name] || 0}</b></span>`).join("")}</div><span class="vd-status ${stateClass}">${state}</span></div></article>`;
+          }
           return `<article class="vd-candidate-row">${voteDeskAvatar(candidate.name)}<div class="vd-candidate-main"><strong>${escapeHtml(candidate.name)}</strong><span>Ballot ${String(position.candidates.indexOf(candidate) + 1).padStart(2, "0")} · ${escapeHtml(candidate.slate)}</span><div class="vd-block-chips">${election.blocks.map((block) => `<span>${escapeHtml(block.name.replace("Block ", ""))} <b>${candidate.blockVotes[block.name] || 0}</b></span>`).join("")}</div></div><div class="vd-candidate-result"><strong>${candidate.votes.toLocaleString()} votes</strong><span>${share}% share</span><span class="vd-status ${stateClass}">${state}</span></div></article>`;
         }).join("")}</div></section>`;
     }).join("")}`;
@@ -1870,7 +1869,11 @@ document.getElementById("saveProfile").addEventListener("click", async () => {
   const errors = [];
   if (!name) errors.push("Full name is required.");
   if (!/^[A-Za-z0-9._-]{3,30}$/.test(username)) errors.push("Username must be 3 to 30 characters using letters, numbers, dots, dashes or underscores.");
-  if (!/^[^\s@]+@gmail\.com$/i.test(email)) errors.push("Enter a valid Gmail address.");
+  if (isStaffAccount()
+    ? !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    : !/^[^\s@]+@gmail\.com$/i.test(email)) {
+    errors.push(isStaffAccount() ? "Enter a valid email address." : "Enter a valid Gmail address.");
+  }
   const changingPassword = Boolean(currentPassword || newPassword || confirmation);
   if (changingPassword && !currentPassword) errors.push("Enter your current password to change it.");
   if (changingPassword && newPassword.length < 8) errors.push("New password must be at least 8 characters.");
@@ -2014,11 +2017,8 @@ async function renderResultsPanel() {
   const header = (updatedAt = "Waiting for results…") => `
     <div class="live-results-header">
       <div>
-        <div class="live-results-title">
-          <h3>Election results</h3>
-          <span class="live-results-indicator">LIVE</span>
-        </div>
-        ${electionName ? `<p class="live-results-election-name">${escapeHtml(electionName)}</p>` : ""}
+        <p class="live-results-election-name">${electionName ? `Current election: ${escapeHtml(electionName)}` : "Current election"}</p>
+        <span class="live-results-indicator">LIVE</span>
         <p class="live-results-meta" aria-live="polite">Auto-refreshes every 15 seconds · ${updatedAt}</p>
       </div>
       <button class="btn-gradient live-results-refresh" id="refreshLiveResults" type="button">Refresh now</button>
@@ -2581,18 +2581,9 @@ async function renderAdminList() {
 }
 
 const addAdminOverlay = document.getElementById("addAdminOverlay");
-document.getElementById("toggleAdminPassword").onclick = () => {
-  const passwordInput = document.getElementById("admPassword2");
-  const toggleButton = document.getElementById("toggleAdminPassword");
-  const isVisible = passwordInput.type === "text";
-  passwordInput.type = isVisible ? "password" : "text";
-  toggleButton.innerHTML = isVisible ? "&#128065;" : "&#128065;&#xfe0e;";
-  toggleButton.setAttribute("aria-label", isVisible ? "Show password" : "Hide password");
-  toggleButton.setAttribute("title", isVisible ? "Show password" : "Hide password");
-};
 document.getElementById("openAddAdminModal").onclick = () => {
   document.getElementById("admError2").textContent = "";
-  ["admName", "admEmail2", "admUsername2", "admPassword2"].forEach((id) => {
+  ["admName", "admEmail2"].forEach((id) => {
     document.getElementById(id).value = "";
   });
   addAdminOverlay.classList.add("show");
@@ -2610,15 +2601,18 @@ document.getElementById("addAdminBtn").onclick = async () => {
   errorEl.textContent = "";
   const name = document.getElementById("admName").value.trim();
   const email = document.getElementById("admEmail2").value.trim();
-  const username = document.getElementById("admUsername2").value.trim();
-  const password = document.getElementById("admPassword2").value;
+  const button = document.getElementById("addAdminBtn");
+  button.disabled = true;
   try {
-    await api("/admin/admins", { method: "POST", token: adminToken, body: { name, email, username, password, role: "staff" } });
-    ["admName", "admEmail2", "admUsername2", "admPassword2"].forEach((id) => { document.getElementById(id).value = ""; });
+    const data = await api("/admin/admins", { method: "POST", token: adminToken, body: { name, email, role: "staff" } });
+    ["admName", "admEmail2"].forEach((id) => { document.getElementById(id).value = ""; });
     renderAdminList();
     closeAddAdminModal();
+    alert(data.message || `Login credentials were emailed to ${email}.`);
   } catch (err) {
-    errorEl.textContent = err.error || "Couldn't add that admin.";
+    errorEl.textContent = err.error || "Couldn't add that staff account.";
+  } finally {
+    button.disabled = false;
   }
 };
 

@@ -163,6 +163,27 @@ function studentCredentialsEmail({ name, username, password }) {
   };
 }
 
+function staffCredentialsEmail({ name, username, password }) {
+  const safeName = escapeHtml(name);
+  const safeUsername = escapeHtml(username);
+  const safePassword = escapeHtml(password);
+  return {
+    subject: "Your CCDI Election Portal staff login credentials",
+    text:
+      `Hi ${name},\n\n` +
+      `A staff account has been created for you. Sign in with:\n` +
+      `Username: ${username}\nPassword: ${password}\n\n` +
+      `After entering these credentials, enter the one-time verification code sent to your email. ` +
+      `You can update your profile and change your password after signing in. Keep this email private.`,
+    html:
+      `<p>Hi ${safeName},</p>` +
+      `<p>A staff account has been created for you. Sign in with:</p>` +
+      `<p><strong>Username:</strong> ${safeUsername}<br><strong>Temporary password:</strong> ${safePassword}</p>` +
+      `<p>After entering these credentials, enter the one-time verification code sent to your email. ` +
+      `You can update your profile and change your password after signing in. Keep this email private.</p>`,
+  };
+}
+
 function adminOtpEmail({ name, code }) {
   const safeName = escapeHtml(name);
   return {
@@ -195,4 +216,4 @@ function adminPasswordResetEmail({ name, code }) {
   };
 }
 
-module.exports = { sendMail, studentCredentialsEmail, adminOtpEmail, adminPasswordResetEmail };
+module.exports = { sendMail, studentCredentialsEmail, staffCredentialsEmail, adminOtpEmail, adminPasswordResetEmail };
